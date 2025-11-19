@@ -474,12 +474,13 @@ For bug reports, feature requests, and security vulnerabilities, please use the 
 
 ## Author
 
-**Genesis GZ**  
+**Genesis**  
 Security Researcher & Software Developer  
 Contact: genzt.dev@pm.me
 
 ## License
 
 MIT License - See LICENSE file for complete terms.
+
 
 
