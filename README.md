@@ -454,9 +454,9 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
    - Identity theft or fraud
    - Any illegal activities
 
-5. **No Warranty**: The developers provide no warranty regarding the accuracy, reliability, or completeness of information gathered using this framework.
+5. **No Warranty**: The developer provide no warranty regarding the accuracy, reliability, or completeness of information gathered using this framework.
 
-6. **Limitation of Liability**: In no event shall the developers be liable for any special, direct, indirect, or consequential damages or any damages whatsoever resulting from loss of use, data, or profits arising out of or in connection with the use of this software.
+6. **Limitation of Liability**: In no event shall the developer be liable for any special, direct, indirect, or consequential damages or any damages whatsoever resulting from loss of use, data, or profits arising out of or in connection with the use of this software.
 
 ### Compliance Requirements
 
@@ -481,6 +481,7 @@ Contact: genzt.dev@pm.me
 ## License
 
 MIT License - See LICENSE file for complete terms.
+
 
 
 
