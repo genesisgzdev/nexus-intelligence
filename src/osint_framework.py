@@ -1364,15 +1364,27 @@ class EmailIntel:
         """
         try:
             import dns.resolver
-            mx_records = dns.resolver.resolve(domain, 'MX')
-            intel['mx_records'] = [str(r.exchange) for r in mx_records]
-        except Exception:
+            try:
+                mx_records = dns.resolver.resolve(domain, 'MX')
+                intel['mx_records'] = [str(r.exchange).rstrip('.') for r in mx_records]
+            except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.exception.Timeout):
+                # Domain not found or no MX records
+                intel['mx_records'] = []
+        except ImportError:
+            logger.debug("dnspython not available, using fallback DNS resolution")
             # Fallback to socket if dnspython not available
             try:
-                socket.gethostbyname(domain)
-                intel['mx_records'] = ['DNS resolved']
-            except Exception:
+                import socket as sock
+                result = sock.gethostbyname(domain)
+                if result:
+                    intel['mx_records'] = [f'A record: {result}']
+                else:
+                    intel['mx_records'] = []
+            except (socket.gaierror, OSError):
                 intel['mx_records'] = []
+        except Exception as e:
+            logger.debug(f"MX record lookup failed for {domain}: {e}")
+            intel['mx_records'] = []
 
     def _check_disposable(self, domain: str, intel: Dict):
         """
