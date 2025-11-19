@@ -80,7 +80,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger('OSINT')
 
-# HTTP ENGINE
+# HTTP ENGINE 
 
 class HTTPEngine:
     """
@@ -175,8 +175,7 @@ class HTTPEngine:
             return None
              
 
-# GITHUB MODULE
-
+# GITHUB MODULE 
 
 class GitHubIntel:
     """
