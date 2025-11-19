@@ -2,12 +2,10 @@
 # -*- coding: utf-8 -*-
 """
 OSINT Intelligence System
-Multi-platform threat intelligence and data extraction tool.
+Multi-platform threat intelligence and data extraction tool :)
 """
 
-# ============================================================================
 # IMPORTS & DEPENDENCIES
-# ============================================================================
 
 import sys
 import json
@@ -50,9 +48,7 @@ try:
 except ImportError:
     BS4_AVAILABLE = False
 
-# ============================================================================
 # CONFIGURATION & CONSTANTS
-# ============================================================================
 
 # Color theme configuration - Dark background with green accents
 THEME = {
@@ -84,14 +80,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger('OSINT')
 
-
-# ============================================================================
 # HTTP ENGINE
-# ============================================================================
 
 class HTTPEngine:
     """
-    Enhanced HTTP client with automatic retry logic and user-agent rotation.
+    Enhanced HTTP client with automatic retry logic and user-agent rotation 
 
     Provides robust HTTP request handling with:
     - Automatic retries for failed requests
@@ -180,11 +173,10 @@ class HTTPEngine:
         except requests.exceptions.RequestException as e:
             logger.debug(f"Request failed: {url} - {e}")
             return None
+             
 
+# GITHUB MODULE
 
-# ============================================================================
-# GITHUB INTELLIGENCE MODULE
-# ============================================================================
 
 class GitHubIntel:
     """
@@ -484,9 +476,8 @@ class GitHubIntel:
                 })
 
 
-# ============================================================================
-# REDDIT INTELLIGENCE MODULE
-# ============================================================================
+
+# REDDIT MODULE
 
 class RedditIntel:
     """
@@ -675,10 +666,8 @@ class RedditIntel:
         if intel['comments']:
             intel['stats']['controversial_ratio'] = controversial_count / len(intel['comments'])
 
+# STACKOVERFLOW MODULE
 
-# ============================================================================
-# STACKOVERFLOW INTELLIGENCE MODULE
-# ============================================================================
 
 class StackOverflowIntel:
     """
@@ -874,10 +863,7 @@ class StackOverflowIntel:
 
         intel['stats']['top_tags'] = intel['tags'][:10]
 
-
-# ============================================================================
-# HAVEIBEENPWNED INTELLIGENCE MODULE
-# ============================================================================
+# HAVEIBEENPWNED MODULE
 
 class HaveIBeenPwnedIntel:
     """
@@ -985,14 +971,11 @@ class HaveIBeenPwnedIntel:
 
         return intel
 
-
-# ============================================================================
-# TWITTER/X INTELLIGENCE MODULE
-# ============================================================================
+# TWITTER MODULE
 
 class TwitterIntel:
     """
-    Twitter/X intelligence collector via Nitter proxy.
+    Twitter intelligence collector via Nitter proxy
 
     Uses Nitter instances (privacy-friendly Twitter frontend) to collect:
     - Profile information
@@ -1021,10 +1004,10 @@ class TwitterIntel:
 
     def collect(self, username: str) -> Dict:
         """
-        Collect Twitter intelligence via Nitter proxy.
+        Collect Twitter intelligence via Nitter proxy
 
         Args:
-            username: Twitter/X username to investigate
+            username: Twitter username to investigate
 
         Returns:
             Dictionary containing:
@@ -1118,13 +1101,11 @@ class TwitterIntel:
         return intel
 
 
-# ============================================================================
-# CRYPTOCURRENCY INTELLIGENCE MODULE
-# ============================================================================
+# CRYPTOCURRENCY MODULE
 
 class CryptoIntel:
     """
-    Multi-chain cryptocurrency analyzer.
+    Multi-chain cryptocurrency analyzer
 
     Supports:
     - Bitcoin (BTC) via blockchain.info API
@@ -1139,7 +1120,7 @@ class CryptoIntel:
 
     def __init__(self, http: HTTPEngine):
         """
-        Initialize cryptocurrency analyzer.
+        Initialize cryptocurrency analyzer
 
         Args:
             http: HTTPEngine instance for making requests
@@ -1269,10 +1250,7 @@ class CryptoIntel:
 
         return intel
 
-
-# ============================================================================
-# EMAIL INTELLIGENCE MODULE
-# ============================================================================
+# EMAIL MODULE
 
 class EmailIntel:
     """
@@ -1389,10 +1367,7 @@ class EmailIntel:
         ]
         intel['disposable'] = domain.lower() in disposable_domains
 
-
-# ============================================================================
 # TEMPORAL ANALYSIS MODULE
-# ============================================================================
 
 class TemporalAnalyzer:
     """
@@ -1517,10 +1492,7 @@ class TemporalAnalyzer:
 
         return analysis
 
-
-# ============================================================================
-# MAIN OSINT SYSTEM
-# ============================================================================
+# MAIN OSINT
 
 class OSINTSystem:
     """
@@ -1669,10 +1641,7 @@ class OSINTSystem:
         logger.info(f"  {INDICATORS['not_found']} Address not found on supported chains")
         return {'valid': False, 'address': address}
 
-
-# ============================================================================
 # ENHANCED USER INTERFACE
-# ============================================================================
 
 class Interface:
     """
@@ -2073,10 +2042,7 @@ class Interface:
         else:
             print(f"{INDICATORS['processing']} {message}")
 
-
-# ============================================================================
 # MAIN ENTRY POINT
-# ============================================================================
 
 def main():
     """
