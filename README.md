@@ -1,5 +1,3 @@
-Automated OSINT reconnaissance framework for security research and digital investigation.
-
 ## Overview
 
 Nexus Intelligence is a modular open-source intelligence gathering framework designed for security professionals and researchers. The framework automates data collection from public sources while implementing responsible disclosure practices and operational security measures.
@@ -483,4 +481,5 @@ Contact: genzt.dev@pm.me
 ## License
 
 MIT License - See LICENSE file for complete terms.
+
 
