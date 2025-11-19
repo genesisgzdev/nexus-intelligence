@@ -1,5 +1,3 @@
-markdown# Nexus Intelligence Framework
-
 Automated OSINT reconnaissance framework for security research and digital investigation.
 
 ## Overview
@@ -485,3 +483,4 @@ Contact: genzt.dev@pm.me
 ## License
 
 MIT License - See LICENSE file for complete terms.
+
