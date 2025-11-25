@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "osint-intelligence"
+version = "4.0.0"
+description = "OSINT Intelligence Framework"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [{name = "Genesis GZ", email = "genzt.dev@pm.me"}]
+keywords = ["osint", "intelligence", "security", "reconnaissance"]
