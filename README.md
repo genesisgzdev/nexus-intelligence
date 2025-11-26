@@ -1105,8 +1105,6 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Computer Misuse Act 1990 - United Kingdom
 - Cybercrime Prevention Act - Various jurisdictions
 
-## Support and Contact
-
 ### Issue Reporting
 
 **For non-sensitive issues:**
@@ -1114,7 +1112,6 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Documentation: README.md, CONTRIBUTING.md, SECURITY.md
 
 **For security vulnerabilities:**
-- Email: genzt.dev@pm.me (PGP encryption recommended)
 - Responsible Disclosure: 90-day disclosure timeline
 - Bug Bounty: See SECURITY.md for details
 
@@ -1132,10 +1129,9 @@ See CONTRIBUTING.md for submission guidelines.
 ## Author Genesis
 
 **Security Researcher & Developer**  
-Contact: genzt.dev@pm.me
+Contact & Support: genzt.dev@pm.me
 Security Issues: genesis.Issues@pm.me (PGP required)
-General Discuon: GitssiHub Discussion 
-
+ 
 ## License
 
 MIT License - See LICENSE file for complete terms.
