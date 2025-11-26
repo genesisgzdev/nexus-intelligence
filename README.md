@@ -1129,10 +1129,12 @@ Contributions welcome in areas of:
 
 See CONTRIBUTING.md for submission guidelines.
 
-## Author
+## Author Genesis
 
 **Security Researcher & Developer**  
 Contact: genzt.dev@pm.me
+Security Issues: genesis.Issues@pm.me (PGP required)
+General Discuon: GitssiHub Discussion 
 
 ## License
 
