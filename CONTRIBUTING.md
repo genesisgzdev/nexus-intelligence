@@ -434,7 +434,11 @@ Fixes #[issue number]
 
 DO NOT open a public issue for security vulnerabilities.
 
-Email genzt.dev@pm.me with the subject line "Vulnerability Report: [Module Name]". The report must include:
+Email genzt.dev@pm.me with the subject line "Vulnerability Report: 
+
+$$Module Name$$
+
+". The report must include:
 
 Vulnerability description.
 
