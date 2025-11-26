@@ -1,8 +1,5 @@
-Tienes razón, necesitas los bloques de código con sintaxis correcta para GitHub. Aquí está el README con formato correcto y el año 2025:
-markdown# Nexus Intelligence Framework
-
 ## Overview
-
+ 
 Nexus Intelligence Framework is an advanced OSINT reconnaissance platform implementing automated intelligence gathering across digital footprints. The framework combines username enumeration, email analysis, domain reconnaissance, breach correlation, and social media profiling with real-time caching and risk assessment capabilities to address modern intelligence requirements including identity verification, threat assessment, corporate reconnaissance, and digital investigation.
 
 ## Technical Architecture
@@ -978,9 +975,9 @@ Framework generates structured logs for analysis:
 - Scope documentation with specific targets
 - Time-boxed testing window
 - Clear rules of engagement
+**Regulatory Compliance:**
 - Incident reporting procedures
 
-**Regulatory Compliance:**
 - **CFAA** (Computer Fraud and Abuse Act) - United States
 - **GDPR** (General Data Protection Regulation) - European Union  
 - **CCPA** (California Consumer Privacy Act) - California
