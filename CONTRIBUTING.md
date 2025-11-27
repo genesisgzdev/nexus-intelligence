@@ -4,7 +4,7 @@
 
 Nexus Intelligence Framework is an enterprise-grade OSINT platform built for security researchers, penetration testers, and intelligence analysts. This document outlines the technical standards, architectural principles, and contribution workflow required to maintain the framework's production-quality codebase.
 
-**Project Maintainer:** Genesis GZ ([@genesisgzdev](https://github.com/genesisgzdev))  
+**Project Maintainer:** Genesis ([@genesisgzdev](https://github.com/genesisgzdev))  
 **Issue Reports:** genesis.issues@pm.me  
 **Technical Support:** genzt.dev@pm.me  
 
