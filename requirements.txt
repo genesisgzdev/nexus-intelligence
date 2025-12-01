@@ -1,53 +1,27 @@
-# Nexus Intelligence Framework - Production Dependencies
+# Nexus Intelligence Framework
 # Version: 1.0.0
 # Python: >=3.8
-# Last Updated: 2025-12-01
 
-# Core HTTP client with connection pooling and retry logic
-# Used by HTTPEngine for all API requests (GitHub, HIBP, social platforms)
-# Security: CVE-2023-32681 patched in 2.31.0+
+# Core dependencies
 requests>=2.31.0
-
-# Low-level HTTP library required by requests
-# Security: CVE-2024-37891 patched in 2.2.1+
 urllib3>=2.2.1
-
-# Async HTTP client for concurrent operations
-# Currently used for future async implementation in HTTPEngine
-aiohttp>=3.9.0
-
-# DNS resolution for A, AAAA, MX, NS, TXT, CNAME queries
-# Used by DomainIntel module for infrastructure reconnaissance
 dnspython>=2.6.0
-
-# WHOIS protocol client for domain registration data
-# Used by DomainIntel._analyze_whois() method
 python-whois>=0.8.0
 
-# HTML/XML parser for web scraping and content extraction
-# Used by future social media modules
+# Parsing and rendering
 beautifulsoup4>=4.12.3
-
-# High-performance XML/HTML parser backend for BeautifulSoup
-# Provides 10x faster parsing than default html.parser
 lxml>=5.1.0
-
-# Template engine for HTML report generation
-# Used by ExportManager.to_html() with auto-escaping for XSS prevention
 jinja2>=3.1.3
 
-# Terminal UI library for formatted output
-# Used by AdvancedInterface for color tables and progress indicators
+# Terminal UI
 rich>=13.7.0
 
-# Environment variable loader from .env files
-# Used for secure credential management (GITHUB_TOKEN, API keys)
+# Configuration
 python-dotenv>=1.0.1
 
-# TLS/SSL certificate bundle
-# Transitive dependency for HTTPS connections
+# Security
 certifi>=2024.2.2
-
-# Character encoding detection for non-UTF8 responses
-# Used by HTTPEngine for international website compatibility
 chardet>=5.2.0
+
+# Async support
+aiohttp>=3.9.0
