@@ -13,7 +13,7 @@ Nexus Intelligence v3.1.0 represents a complete paradigm shift from traditional 
 ## Core Advancements
 
 ### 1. Mathematical Forensic Kernel
-- **Entropy Analytics**: Integration of Shannon and RÃ©nyi (Order 2) entropy engines for real-time DGA (Domain Generation Algorithm) detection and synthetic certificate identification.
+- **Entropy Analytics**: Integration of Shannon and Rényi (Order 2) entropy engines for real-time DGA (Domain Generation Algorithm) detection and synthetic certificate identification.
 - **Statistical Audit (Benford's Law)**: Automated chi-squared validation of forensic metadata distributions. Nexus can now identify datasets that have been artificially generated or manually manipulated.
 - **Multi-Order Markov Chains**: Sequential behavior modeling to distinguish between automated system transitions and organic navigation patterns.
 
