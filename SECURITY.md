@@ -1,8 +1,8 @@
 # Security Policy
 
-## Core Security Mandate: Zero-API Intelligence
+## Core Security Standard: local-first Intelligence
 
-Nexus Intelligence is architected to prioritize **Operational Security (OPSEC)** and **Data Sovereignty**. By operating under a **Zero-API** mandate, the framework ensures that:
+Nexus Intelligence is architected to prioritize **Operational Security (OPSEC)** and **Data Sovereignty**. By operating under a **local-first** Standard, the framework ensures that:
 1.  **No Third-Party Exposure**: Intelligence gathering does not trigger logs in 3rd-party SaaS databases (e.g., Shodan, Censys, HIBP).
 2.  **Privacy of Investigation**: Target identifiers are never transmitted to external APIs, preventing investigation leakage.
 3.  **Local Forensic Integrity**: All mathematical audits (Entropy, Benford's Law) occur locally on the investigator's infrastructure.

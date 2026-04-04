@@ -1,16 +1,16 @@
 # Nexus Intelligence Framework (v3.1.0)
 
-**Nexus Intelligence** is a high-performance, Zero-API OSINT reconnaissance and forensic framework designed for deep infrastructure analysis and digital investigation. Unlike traditional OSINT tools that rely on fragile 3rd-party APIs, Nexus implements direct protocol forensics and advanced mathematical models to extract intelligence from the network, transport, and application layers.
+**Nexus Intelligence** is a parallelized, local protocol OSINT reconnaissance and forensic framework designed for deep infrastructure analysis and digital investigation. Unlike traditional OSINT tools that rely on fragile 3rd-party APIs, Nexus implements direct protocol forensics and modular mathematical models to extract intelligence from the network, transport, and application layers.
 
 The framework is built on a decoupled, multi-threaded orchestration engine that correlates statistical anomalies—such as Information Entropy and Benford's Law violations—to identify synthetic entities, DGA domains, and infrastructure inconsistencies.
 
 ---
 
-## Core Philosophy: Zero-API Forensics
+## Core Philosophy: local protocol Forensics
 
 In modern digital investigations, reliance on external APIs (GitHub, Shodan, HIBP) introduces three critical failure points: **detectability** (via API logging), **unreliability** (rate limits/downtime), and **privacy leakage**. 
 
-Nexus Intelligence operates on an absolute **Zero-API Mandate**:
+Nexus Intelligence operates on an absolute **local protocol Mandate**:
 - **Direct Protocol Interaction**: Intelligence is pulled directly from RFC-compliant DNS, TCP/IP handshakes, and HTTP/S streams.
 - **Local Mathematical Inference**: Anomalies are detected using local statistical engines rather than remote databases.
 - **Operational Security (OPSEC)**: Minimal footprint, no centralized tracking of queries.
@@ -20,14 +20,14 @@ Nexus Intelligence operates on an absolute **Zero-API Mandate**:
 ## Technical Architecture
 
 ### 1. Intelligence Orchestration Engine
-The `IntelligenceEngine` manages the concurrent execution of decoupled forensic modules. Using a high-performance thread pool, it aggregates intelligence from multiple layers of the OSI model simultaneously.
+The `IntelligenceEngine` manages the concurrent execution of decoupled forensic modules. Using a parallelized thread pool, it aggregates intelligence from multiple layers of the OSI model simultaneously.
 
 - **Parallel Execution**: DNS, SSL, and Web modules run in non-blocking threads.
 - **State Aggregation**: Centralized result processing with runtime metadata and fault isolation.
 - **Extensible Plugin System**: Base-class architecture allows for seamless integration of new forensic modules.
 
 ### 2. Mathematical Forensic Core
-Nexus integrates advanced statistical engines to validate the integrity of gathered intelligence:
+Nexus integrates modular statistical engines to validate the integrity of gathered intelligence:
 
 *   **Information Entropy (Shannon & Rényi)**: Analyzes the density of information in domain names and certificates. High efficiency scores (>0.92) in targets are flagged as potential DGA (Domain Generation Algorithms) or synthetic certificates.
 *   **Benford's Law Auditor**: Performs chi-squared tests on the distribution of numerical metadata (e.g., DNS record lengths, certificate validity periods). Identifies datasets that have been manually manipulated or synthetically generated.
