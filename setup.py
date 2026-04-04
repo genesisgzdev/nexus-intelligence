@@ -10,10 +10,10 @@ long_description = readme_file.read_text(encoding="utf-8") if readme_file.exists
 
 setup(
     name="nexus-intelligence",
-    version="1.0.0",
+    version="1.1.0",
     author="Genesis",
     author_email="genzt.dev@pm.me",
-    description="Enterprise-grade OSINT intelligence gathering framework for security researchers",
+    description="Enterprise-grade OSINT intelligence gathering framework for security researchers (Zero-API Edition)",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/genesisgzdev/nexus-intelligence",
@@ -42,17 +42,12 @@ setup(
     python_requires=">=3.8",
     install_requires=[
         "requests>=2.31.0",
-        "urllib3>=2.2.1",
         "dnspython>=2.6.0",
-        "python-whois>=0.8.0",
-        "beautifulsoup4>=4.12.3",
-        "lxml>=5.1.0",
-        "jinja2>=3.1.3",
+        "cryptography>=42.0.0",
         "rich>=13.7.0",
+        "jinja2>=3.1.3",
+        "xhtml2pdf>=0.2.11",
         "python-dotenv>=1.0.1",
-        "certifi>=2024.2.2",
-        "chardet>=5.2.0",
-        "aiohttp>=3.9.0",
     ],
     extras_require={
         "dev": [
@@ -67,7 +62,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "nexus-intel=src.osinth:main",
+            "nexus-intel=src.main:main",
         ],
     },
     keywords=[
