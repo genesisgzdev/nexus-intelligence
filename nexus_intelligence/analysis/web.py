@@ -1,53 +1,107 @@
-﻿import requests
 import re
+import random
+import logging
+from typing import Dict, Any, List
+from curl_cffi import requests
+from bs4 import BeautifulSoup
 from nexus_intelligence.analysis.base import BaseModule
 from nexus_intelligence.analysis.intelligence.entropy import EntropyAnalyzer
 
-class WebIntelligence(BaseModule):
-    # Professional fingerprinting signatures (Passive)
-    SIGNATURES = {
-        "frameworks": {
-            "WordPress": [r"wp-content", r"wp-includes", r"xmlrpc.php"],
-            "Laravel": [r"XSRF-TOKEN", r"laravel_session"],
-            "Django": [r"csrftoken", r"__admin__"],
-            "React": [r"react-root", r"_reactRootContainer"],
-            "Vue.js": [r"vue-app", r"v-attr"],
-        },
-        "security_controls": {
-            "Cloudflare": [r"__cfduid", r"cf-ray", r"cloudflare"],
-            "Akamai": [r"akamai-", r"akamai_"],
-            "Incapsula": [r"visid_incap", r"incap_ses"],
-        }
+# Pre-compiled signatures for optimal performance during scale scans
+SIGNATURES = {
+    "frameworks": {
+        "WordPress": [re.compile(r"wp-content", re.I), re.compile(r"wp-includes", re.I), re.compile(r"xmlrpc\.php", re.I)],
+        "Laravel": [re.compile(r"XSRF-TOKEN", re.I), re.compile(r"laravel_session", re.I)],
+        "Django": [re.compile(r"csrftoken", re.I), re.compile(r"__admin__", re.I)],
+        "React": [re.compile(r"react-root", re.I), re.compile(r"_reactRootContainer", re.I)],
+        "Vue.js": [re.compile(r"vue-app", re.I), re.compile(r"v-attr", re.I)],
+    },
+    "security_controls": {
+        "Cloudflare": [re.compile(r"__cfduid", re.I), re.compile(r"cf-ray", re.I), re.compile(r"cloudflare", re.I)],
+        "Akamai": [re.compile(r"akamai-", re.I), re.compile(r"akamai_", re.I)],
+        "Incapsula": [re.compile(r"visid_incap", re.I), re.compile(r"incap_ses", re.I)],
     }
+}
 
-    def run(self):
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0"
+]
+
+class WebIntelligence(BaseModule):
+    """
+    Advanced Web Intelligence Engine.
+    Implements JA3 TLS impersonation and robust DOM tree parsing.
+    """
+    def run(self) -> Dict[str, Any]:
         self.logger.info(f"Analyzing application stack: {self.target}")
-        res = {"frameworks": [], "controls": [], "security_headers": {}}
+        res: Dict[str, Any] = {
+            "frameworks": [], 
+            "controls": [], 
+            "security_headers": {},
+            "opsec": "TLS_Impersonation_Chrome120"
+        }
+        
         try:
-            # Passive audit via HTTP/S stream
-            r = requests.get(f"https://{self.target}", timeout=10, verify=False, allow_redirects=True)
-            res['status_code'] = r.status_code
-            res['response_time'] = r.elapsed.total_seconds()
+            # TLS Impersonation (JA3 Evasion) & Browser Profile Injection
+            # Bypasses Cloudflare/Akamai bot-management at the cryptographic handshake layer
+            headers = {"User-Agent": random.choice(USER_AGENTS)}
+            proxies = {"http": self.config.proxy_url, "https": self.config.proxy_url} if self.config.proxy_url else None
+
+            r = requests.get(
+                f"https://{self.target}",
+                timeout=self.config.timeout,
+                impersonate="chrome120",
+                proxies=proxies,
+                headers=headers,
+                allow_redirects=True,
+                verify=False # SSL forensics usually requires analyzing invalid/self-signed certs
+            )
             
-            body = r.text
+            res['status_code'] = r.status_code
+            res['response_time'] = round(r.elapsed.total_seconds(), 4)
+            
+            # Robust DOM Parsing (Tree-based, not string slicing)
+            soup = BeautifulSoup(r.text, "lxml")
+            
+            # Signature Forensic Analysis
+            body_content = r.text
             headers_str = str(r.headers)
             
-            # Signature matching
-            for category, sigs in self.SIGNATURES.items():
+            for category, sigs in SIGNATURES.items():
                 for name, patterns in sigs.items():
-                    if any(re.search(p, body, re.I) or re.search(p, headers_str, re.I) for p in patterns):
+                    if any(p.search(body_content) or p.search(headers_str) for p in patterns):
                         res[category].append(name)
             
-            # Header forensics
-            for h in ['Content-Security-Policy', 'Strict-Transport-Security', 'X-Frame-Options', 'X-Content-Type-Options']:
-                if h in r.headers:
-                    res['security_headers'][h] = r.headers[h]
+            # Structured Header Analysis
+            standard_sec_headers = [
+                'Content-Security-Policy', 
+                'Strict-Transport-Security', 
+                'X-Frame-Options', 
+                'X-Content-Type-Options',
+                'Server',
+                'X-Powered-By'
+            ]
+            for h in standard_sec_headers:
+                val = r.headers.get(h)
+                if val: res['security_headers'][h] = val
             
-            # Content entropy (Detect obfuscation/DGA titles)
-            if '<title>' in body.lower():
-                title = body.split('<title>')[1].split('</title>')[0]
-                res['title_analysis'] = EntropyAnalyzer.analyze(title.strip())
-                
+            # Structural metadata extraction
+            if soup.title:
+                title_text = soup.title.get_text().strip()
+                res['title'] = title_text
+                res['title_analysis'] = EntropyAnalyzer.analyze(title_text)
+            
+            # Extract meta tags for deeper OSINT
+            res['meta_tags'] = {
+                m.get('name', m.get('property')): m.get('content') 
+                for m in soup.find_all('meta') if (m.get('name') or m.get('property'))
+            }
+
         except Exception as e:
+            self.logger.error(f"Web module failure for {self.target}: {str(e)}")
             res['error'] = str(e)
+            
         return res
