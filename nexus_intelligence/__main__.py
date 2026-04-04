@@ -16,9 +16,13 @@ def main():
     parser = argparse.ArgumentParser(description="Nexus Intelligence v3.2 - Advanced OSINT Framework")
     parser.add_argument("target", help="Target domain for forensic analysis")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable detailed logging")
+    parser.add_argument("--allow-external-ct", action="store_true", help="Allow external Certificate Transparency lookups (Breaks Zero-API Mandate)")
     args = parser.parse_args()
     
     # Initialize Core infrastructure with Pydantic validation
+    if args.allow_external_ct:
+        config.allow_external_ct = True
+        
     logger = setup_logger(output_dir=config.output_dir, verbose=args.verbose or config.verbose)
     console = Console()
     

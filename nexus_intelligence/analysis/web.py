@@ -39,7 +39,7 @@ class WebIntelligence(BaseModule):
         self.logger.info(f"Analyzing application stack: {self.target}")
         res: Dict[str, Any] = {
             "frameworks": [], 
-            "controls": [], 
+            "security_controls": [], 
             "security_headers": {},
             "opsec": "TLS_Impersonation_Chrome120"
         }

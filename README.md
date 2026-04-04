@@ -1,109 +1,78 @@
-# Nexus Intelligence Framework (v3.1.0)
+# Nexus Intelligence Framework
 
-**Nexus Intelligence** is a parallelized, local protocol OSINT reconnaissance and forensic framework designed for deep infrastructure analysis and digital investigation. Unlike traditional OSINT tools that rely on fragile 3rd-party APIs, Nexus implements direct protocol forensics and modular mathematical models to extract intelligence from the network, transport, and application layers.
+Professional Zero-API OSINT and Network Forensics Framework for advanced security research. Engineered for total OPSEC, cryptographic evasion, and statistical analysis of infrastructure.
 
-The framework is built on a decoupled, multi-threaded orchestration engine that correlates statistical anomalies—such as Information Entropy and Benford's Law violations—to identify synthetic entities, DGA domains, and infrastructure inconsistencies.
+## Core Philosophy: The Zero-API Mandate
 
----
+Nexus is built on the principle of absolute isolation. Unlike traditional reconnaissance tools that rely on third-party aggregators (Shodan, VirusTotal, Censys), Nexus performs raw, local-first forensic analysis. 
 
-## Core Philosophy: local protocol Forensics
-
-In modern digital investigations, reliance on external APIs (GitHub, Shodan, HIBP) introduces three critical failure points: **detectability** (via API logging), **unreliability** (rate limits/downtime), and **privacy leakage**. 
-
-Nexus Intelligence operates on an absolute **local protocol Mandate**:
-- **Direct Protocol Interaction**: Intelligence is pulled directly from RFC-compliant DNS, TCP/IP handshakes, and HTTP/S streams.
-- **Local Mathematical Inference**: Anomalies are detected using local statistical engines rather than remote databases.
-- **Operational Security (OPSEC)**: Minimal footprint, no centralized tracking of queries.
-
----
+*   **Zero Leakage:** Target identifiers (domains, IPs) are never transmitted to third-party APIs by default.
+*   **Cryptographic Evasion:** Implements JA3/JA4 TLS impersonation to bypass modern Layer 7 bot-management systems (Cloudflare, Akamai).
+*   **Privacy-First DNS:** All infrastructure queries are routed via DNS-over-HTTPS (DoH) to prevent ISP-level metadata interception.
 
 ## Technical Architecture
 
-### 1. Intelligence Orchestration Engine
-The `IntelligenceEngine` manages the concurrent execution of decoupled forensic modules. Using a parallelized thread pool, it aggregates intelligence from multiple layers of the OSI model simultaneously.
+### 1. Network Fingerprinting & Evasion
+*   **TLS Impersonation:** Utilizes `curl_cffi` to perform cryptographic handshakes that perfectly mimic Google Chrome 120, preventing WAF-level fingerprinting.
+*   **Browser Profile Injection:** Randomizes User-Agents and header structures to match real-world browser traffic.
+*   **Proxy Support:** Native SOCKS5 and Tor routing for all outbound forensic traffic.
 
-- **Parallel Execution**: DNS, SSL, and Web modules run in non-blocking threads.
-- **State Aggregation**: Centralized result processing with runtime metadata and fault isolation.
-- **Extensible Plugin System**: Base-class architecture allows for seamless integration of new forensic modules.
+### 2. Forensic Intelligence Modules
+*   **WebIntelligence:** Structural DOM analysis using `BeautifulSoup` (lxml) for meta-tag extraction and technology stack fingerprinting.
+*   **SSLForensics:** Deep X.509 inspection, extracting Subject Alternative Names (SAN), Serial Numbers, and OCSP endpoints.
+*   **DNSIntelligence:** Multi-record infrastructure analysis (A, AAAA, MX, NS, TXT, SOA, CAA) via secure DoH resolvers.
 
-### 2. Mathematical Forensic Core
-Nexus integrates modular statistical engines to validate the integrity of gathered intelligence:
+### 3. Mathematical & Statistical Engine
+*   **Benford's Law Audit:** Statistical validation of numerical data (latencies, record lengths) using Pearson's Chi-squared test to detect synthetic or manipulated data.
+*   **Markovian Determinism:** N-gram transition probability analysis to distinguish between Natural Language and Domain Generation Algorithms (DGA).
+*   **Shannon Entropy:** Information density calculation to identify obfuscated payloads and encrypted strings.
 
-*   **Information Entropy (Shannon & Rényi)**: Analyzes the density of information in domain names and certificates. High efficiency scores (>0.92) in targets are flagged as potential DGA (Domain Generation Algorithms) or synthetic certificates.
-*   **Benford's Law Auditor**: Performs chi-squared tests on the distribution of numerical metadata (e.g., DNS record lengths, certificate validity periods). Identifies datasets that have been manually manipulated or synthetically generated.
-*   **Markov Transition Model**: Measures the determinism of sequential data. Used to distinguish between automated system behavior and human-like interactions at the protocol level.
+### 4. Reliability Engineering
+*   **Exponential Backoff:** Intelligent retry logic with random jitter using the `tenacity` engine.
+*   **Zombie Process Prevention:** Strict global timeout enforcement to prevent thread stalling on network tarpits.
+*   **Immutable Auditing:** Dual-channel logging (Structured Rich console + Forensic JSONL files).
 
-### 3. Forensic Modules
+## Installation
 
-#### **Network Intelligence (DNS)**
-- **RFC-Compliant Enumeration**: Direct resolution of A, AAAA, MX, NS, TXT, and SOA records.
-- **DGA Detection**: Real-time entropy analysis of the target identifier to detect algorithmic domain generation.
-- **Infrastructure Mapping**: Automatic extraction of mail server priorities and authoritative nameservers.
-
-#### **Transport Intelligence (SSL/TLS Forensics)**
-- **Handshake Analysis**: Direct extraction of the TLS certificate chain via native sockets.
-- **X.509 Intelligence**: Deep parsing of Subject, Issuer, Serial Numbers, and Validity periods.
-- **SAN Forensic Audit**: Entropy analysis of Subject Alternative Names to detect hidden infrastructure or shared hosting anomalies.
-- **Cipher Suite Fingerprinting**: Identification of the server's cryptographic stack and protocol versions.
-
-#### **Application Intelligence (Web Fingerprinting)**
-- **Passive Stack Audit**: Signature-based detection of frameworks (WordPress, Laravel, React) via headers and response body analysis.
-- **Security Policy Evaluation**: Validation of Content-Security-Policy (CSP) and Strict-Transport-Security (HSTS).
-- **Metadata Forensics**: Statistical analysis of HTML titles and structural components.
-
----
-
-## Performance Benchmarks
-
-*Tested on Python 3.11, 8-core CPU, 1Gbps Uplink.*
-
-| Operation | Strategy | Avg. Time | Complexity |
-| :--- | :--- | :--- | :--- |
-| **DNS Intelligence** | Parallel RFC Query | 0.8s | O(records) |
-| **TLS Forensics** | Direct Handshake | 0.4s | O(1) |
-| **Web Audit** | Passive Fingerprint | 1.1s | O(signatures) |
-| **Statistical Audit** | Chi-Squared / Entropy | <0.1s | O(n) |
-| **Full Investigation** | Parallel Orchestration | **~1.5s** | **Optimized** |
-
----
-
-## Installation & Deployment
-
-### Docker Deployment (Recommended)
-Nexus is optimized for containerized environments to ensure consistent forensic snapshots.
+### Via Docker (Recommended)
+Isolate the framework and its dependencies within a non-privileged container.
 
 ```bash
-# Build the intelligence image
-docker build -t nexus-intel .
-
-# Execute a non-persistent scan
-docker run --rm nexus-intel target.com
+docker build -t nexus-intelligence .
+docker run --rm -v $(pwd)/reports:/home/nexus/app/reports nexus-intelligence <target>
 ```
 
-### Standard Installation
+### Local Development
+Requires Python 3.11+.
+
 ```bash
-# Clone the repository
-git clone https://github.com/genesisgzdev/nexus-intelligence.git
-cd nexus-intelligence
-
-# Install local package
-pip install -e .
-
-# Run CLI
-nexus-intel target.com --verbose
+pip install -r requirements.txt
+python -m nexus_intelligence <target>
 ```
 
----
+## Configuration
 
-## Operational Security & Legal Notice
+Nexus uses Pydantic-based configuration. You can override defaults via environment variables:
 
-This framework is a professional tool for security researchers and authorized investigators. 
+*   `NEXUS_TIMEOUT`: Global timeout in seconds (Default: 15).
+*   `NEXUS_THREADS`: Maximum parallel execution threads (Default: 8).
+*   `NEXUS_PROXY_URL`: SOCKS5/HTTP proxy URL.
+*   `NEXUS_DOH_ENDPOINT`: DNS-over-HTTPS provider.
 
-1.  **Authorization**: Explicit written consent from the target infrastructure owner is mandatory before execution.
-2.  **Compliance**: Users must comply with the Computer Fraud and Abuse Act (CFAA) and GDPR regulations regarding data processing.
-3.  **Disclaimer**: The developers provide this tool "as-is" for educational and forensic purposes. Misuse of this tool for unauthorized activities is strictly prohibited.
+## Usage
 
----
+Standard forensic scan:
+```bash
+nexus-intel cloudflare.com
+```
 
-**Nexus Intelligence**  
-**Forensics Mathematical Rigor.**
+Verbose scan with external CT log lookup (Breaks Zero-API Mandate):
+```bash
+nexus-intel google.com --verbose --allow-external-ct
+```
+
+## Forensic Logs
+All results are persisted in the `reports/` directory in JSONL format, providing an immutable audit trail for forensic investigations.
+
+## License
+MIT License.

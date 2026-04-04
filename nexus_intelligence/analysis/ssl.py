@@ -76,8 +76,11 @@ class SSLForensics(BaseModule):
                         res['ocsp_endpoints'] = [desc.access_location.value for desc in aia.value if desc.access_method.oid == x509.oid.AuthorityInformationAccessOID.OCSP]
                     except: pass
 
-                    # CT Log Lookup (Async Context)
-                    res['transparency'] = self.check_ct_logs(cert_hash_sha256)
+                    # CT Log Lookup (Respecting Zero-API Mandate)
+                    if self.config.allow_external_ct:
+                        res['transparency'] = self.check_ct_logs(cert_hash_sha256)
+                    else:
+                        res['transparency'] = {"status": "Skipped", "reason": "Zero-API_Mandate_Strict"}
 
         except Exception as e:
             self.logger.error(f"TLS forensics failed for {self.target}: {str(e)}")

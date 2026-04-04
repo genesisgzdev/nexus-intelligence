@@ -23,6 +23,7 @@ class NexusSettings(BaseSettings):
     # OPSEC & Networking
     proxy_url: Optional[str] = Field(default=None, description="SOCKS5/HTTP proxy (e.g. socks5://127.0.0.1:9050)")
     use_tor: bool = Field(default=False, description="Enable automatic Tor circuit control")
+    allow_external_ct: bool = Field(default=False, description="Explicitly allow external CT log lookups (Breaks Zero-API Mandate)")
     
     # DNS Intelligence (Privacy-oriented)
     dns_resolvers: List[str] = Field(
