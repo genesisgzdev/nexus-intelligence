@@ -1,16 +1,17 @@
-# Changelog
+﻿# Changelog
+
+## [3.1.0] - 2026-04-04
+### Added
+- **Mathematical Forensics Core**: Implementation of Shannon & Rényi Entropy for DGA detection.
+- **Benford's Law Auditor**: Chi-squared distribution analysis for forensic metadata validation.
+- **Forensic TLS Engine**: Direct handshake extraction and x.509 certificate audit (Zero-API).
+- **Parallel Orchestration**: Threaded execution of network, transport, and application layer modules.
+- **Docker-First Deployment**: Optimized Dockerfile and Compose for isolated reconnaissance.
+- **Professional Docs**: Complete overhaul of README and SECURITY mandates.
+
+### Fixed
+- Improved fault isolation in concurrent module execution.
+- Optimized DNS resolution timeouts for high-latency environments.
 
 ## [2.0.0] - 2026-04-04
-### Added
-- Complete modular overhaul of the framework.
-- Package structure `nexus_intelligence`.
-- Parallel execution engine for high-performance scanning.
-- Strict Zero-API architecture (Direct socket/DNS/HTTP forensics).
-- Enhanced SSL forensics (subject, issuer, handshake, validity).
-- Passive web technology fingerprinting.
-- Professional Rich-based CLI logging.
-- Advanced HTML reporting with Jinja2.
-
-### Removed
-- Monolithic `src/osinth.py`.
-- Legacy `src/` directory.
+- Initial modular package architecture.
