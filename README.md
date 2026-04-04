@@ -105,5 +105,5 @@ This framework is a professional tool for security researchers and authorized in
 
 ---
 
-**Nexus Intelligence Framework**  
-*Enterprise Forensics. Mathematical Rigor. Zero-API Operational Intelligence.*
+**Nexus Intelligence**  
+**Forensics Mathematical Rigor.**
