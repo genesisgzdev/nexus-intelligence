@@ -1,14 +1,14 @@
-# Release Notes: v3.1.0 - System Update
+# Release Notes: v3.1.1 - System Update
 
 **Version:** 3.1.0  
 **Release Date:** April 4, 2026  
-**Tag:** `v3.1.0`  
+**Tag:** `v3.1.1`  
 **Status:** Production Ready / Operational
 
 ---
 
 ## Overview
-Nexus Intelligence v3.1.0 represents a complete architectural transition from traditional OSINT scanners. This milestone transitions the framework into a **protocol-level Forensic Suite**, eliminating reliance on third-party SaaS platforms and implementing raw protocol-level reconnaissance and mathematical verification.
+Nexus Intelligence v3.1.1 represents a complete architectural transition from traditional OSINT scanners. This milestone transitions the framework into a **protocol-level Forensic Suite**, eliminating reliance on third-party SaaS platforms and implementing raw protocol-level reconnaissance and mathematical verification.
 
 ## Core Advancements
 
