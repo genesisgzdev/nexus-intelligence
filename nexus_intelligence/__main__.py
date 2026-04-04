@@ -1,56 +1,39 @@
-"""
-Main entry point for the Nexus Intelligence CLI.
-"""
-import argparse
-import sys
-import os
-
-# Add package root to sys.path if running as script
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+﻿import argparse
+from nexus_intelligence.core.engine import IntelligenceEngine
 from nexus_intelligence.core.config import Config
 from nexus_intelligence.core.logger import setup_logger
-from nexus_intelligence.core.engine import Orchestrator
-
-from nexus_intelligence.analysis.dns import DNSAnalyzer
-from nexus_intelligence.analysis.ssl import SSLAnalyzer
-from nexus_intelligence.analysis.web import WebAnalyzer
-
-from nexus_intelligence.reporting.json import JSONReporter
-from nexus_intelligence.reporting.html import HTMLReporter
+from nexus_intelligence.analysis.dns import DNSIntelligence
+from nexus_intelligence.analysis.ssl import SSLForensics
+from nexus_intelligence.analysis.web import WebIntelligence
+from nexus_intelligence.analysis.intelligence.math_forensics import BenfordAnalyzer
+from rich.console import Console
 
 def main():
-    parser = argparse.ArgumentParser(description="Nexus Intelligence v2.0: Modular OSINT Framework")
-    parser.add_argument("target", help="Target domain (e.g., example.com)")
-    parser.add_argument("--format", "-f", choices=["json", "html"], default="html", help="Report format")
-    parser.add_argument("--output", "-o", help="Output file path")
-    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose debug logging")
-    
+    parser = argparse.ArgumentParser(description="Nexus Intelligence v3.1")
+    parser.add_argument("target")
     args = parser.parse_args()
     
-    logger = setup_logger(verbose=args.verbose)
+    logger = setup_logger()
     config = Config()
+    engine = IntelligenceEngine(args.target, config, logger)
     
-    orchestrator = Orchestrator(args.target, config, logger)
+    data = engine.run([DNSIntelligence, SSLForensics, WebIntelligence])
     
-    # Define modules to run
-    modules = [DNSAnalyzer, SSLAnalyzer, WebAnalyzer]
+    # Cross-module mathematical audit
+    all_record_lengths = []
+    if 'DNSIntelligence' in data:
+        for rtype in ['A', 'MX', 'NS', 'TXT']:
+            if rtype in data['DNSIntelligence']:
+                all_record_lengths.extend([float(len(r)) for r in data['DNSIntelligence'][rtype]])
     
-    results = orchestrator.run_parallel(modules)
+    if all_record_lengths:
+        data['StatisticalAudit'] = BenfordAnalyzer.compute(all_record_lengths)
     
-    # Determine output path
-    output_path = args.output
-    if not output_path:
-        output_path = os.path.join(config.output_dir, f"report_{args.target}.{args.format}")
-        
-    logger.info(f"Generating [bold cyan]{args.format.upper()}[/] report to: [italic]{output_path}[/]")
-    
-    if args.format == "json":
-        JSONReporter(args.target, results, output_path).generate()
-    elif args.format == "html":
-        HTMLReporter(args.target, results, output_path).generate()
-        
-    logger.info("[bold green]Scan completed successfully. Operational intelligence secured.[/]")
+    console = Console()
+    console.print(f"\n[bold blue]=== Nexus Intelligence Forensics: {args.target} ===[/]\n")
+    for mod, res in data.items():
+        console.print(f"[bold cyan]>> {mod}[/]")
+        console.print(res)
+        console.print("-" * 40)
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()

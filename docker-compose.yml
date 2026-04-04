@@ -1,0 +1,5 @@
+services:
+  nexus:
+    build: .
+    volumes:
+      - ./reports:/app/reports
