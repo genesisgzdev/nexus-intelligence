@@ -1,25 +1,22 @@
-FROM python:3.11-alpine
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install network utilities and build dependencies for cryptography/lxml
-RUN apk add --no-cache \
+# Instalar dependencias de sistema minimas para red y criptografia
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
-    musl-dev \
     libffi-dev \
-    openssl-dev \
-    libxml2-dev \
-    libxslt-dev \
-    bind-tools \
-    tcpdump
+    libssl-dev \
+    dnsutils \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Run as non-privileged user for OPSEC
-RUN adduser -D nexususer
+# Seguridad Operativa: Usuario no privilegiado
+RUN useradd -m nexususer
 USER nexususer
 
 ENTRYPOINT ["python", "-m", "nexus_intelligence"]
