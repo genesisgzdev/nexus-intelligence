@@ -1,7 +1,6 @@
-﻿name: Production Release
+name: Production Release
 
-on:
-  push:
+on:`n  workflow_dispatch:
     tags:
       - 'v*'
 
@@ -39,3 +38,4 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

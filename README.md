@@ -1,50 +1,64 @@
-# Nexus Intelligence
+# Nexus Intelligence Framework (v1.6.0)
 
-## System Overview
-Nexus Intelligence is an asynchronous, protocol-driven Open Source Intelligence (OSINT) orchestration platform. It is engineered for high-concurrency forensic data collection across DNS, TLS/SSL, Web Application Stacks, and Mail Infrastructure without reliance on third-party APIs.
+## Technical Specification
+Nexus Intelligence is a distributed, asynchronous forensic orchestration platform designed for autonomous Open Source Intelligence (OSINT) and cross-project threat correlation. It operates under a **Zero-API Mandate**, utilizing native network protocols to interact directly with target infrastructure.
 
-## Architecture
+## System Architecture
 
 `mermaid
-graph TD;
-    CLI[__main__.py] -->|argparse| ORCH[IntelligenceOrchestrator];
-    ORCH -->|asyncio.Queue| ENG[IntelligenceEngine];
-    ENG -->|Parallel Execution| MODS[Analysis Modules];
-    
-    subgraph Modules [Forensic Engines]
-        DNS[DNSIntelligence: raw UDP/TCP 53]
-        SSL[SSLForensics: Local X.509 Handshake]
-        WEB[WebIntelligence: JA3 Impersonation]
-        MAIL[MailIntelligence: SMTP Banner/SPF/DMARC]
-        SUB[SubdomainDiscovery: Async Brute-force]
+graph TB
+    subgraph Input_Layer [Orchestration]
+        M[__main__.py] -->|argparse| ORCH[IntelligenceOrchestrator]
+        ORCH -->|asyncio.Queue| Q[Task Queue]
     end
-    
-    MODS -->|JSON Results| DB[(Local SQLite Persistence)];
-    MODS -->|Event Stream| REP[ReportingEngine];
-    REP -->|Markdown/JSON| FS[Forensic Reports];
+
+    subgraph Analysis_Layer [Forensic Engines]
+        Q --> W1[Worker 1]
+        Q --> W2[Worker 2]
+        W1 & W2 --> DNS[DNS: raw UDP/53]
+        W1 & W2 --> SSL[SSL: Local X.509 Parser]
+        W1 & W2 --> WEB[Web: JA3 Impersonation]
+        W1 & W2 --> MAIL[Mail: SMTP Banner Grabbing]
+    end
+
+    subgraph Intelligence_Layer [AI Correlation]
+        DNS & SSL & WEB & MAIL -->|JSONL| DB[(SQLite Persistence)]
+        DB -->|Text Context| VEC[VectorCorrelator]
+        VEC -->|Sentence-Transformers| EMB[all-MiniLM-L6-v2]
+        EMB -->|Inner Product| FAISS[FAISS Vector Index]
+    end
+
+    subgraph Output_Layer [Forensics]
+        FAISS -->|Recall@K| REL[Related Threats Mapping]
+        REL -->|Markdown| REP[Automated ReportingEngine]
+    end
 `
 
-## Core Capabilities
+## Core Modules & Protocol Implementation
 
-### 1. Protocol-Driven Intelligence (Zero-API)
-Unlike standard OSINT tools that proxy queries through web services, Nexus interacts directly with target infrastructure:
-- **DNS Forensics**: Utilizes \dns.asyncresolver\ for direct recursion over UDP/TCP port 53.
-- **TLS Handshake**: Performs local X.509 attribute extraction (Issuer, SANs, Signature Algorithms) via raw async socket handshakes.
-- **SMTP Auditing**: Executes non-intrusive SMTP banner grabbing and validates SPF/DMARC policies to map mail infrastructure trust levels.
+### 1. Advanced DNS Forensics
+- **Mechanism**: Utilizes \dns.asyncresolver\ for non-blocking recursion.
+- **Protocol Integrity**: Bypasses HTTPS-based resolvers (DoH) to interact directly with nameservers, capturing raw record sets (A, AAAA, MX, TXT, SOA, CAA).
+- **Security**: Implements SSRF gating, preventing queries to internal RFC 1918 addresses or cloud metadata endpoints.
 
-### 2. High-Concurrency Orchestration
-The system utilizes a non-blocking \syncio\ event loop to manage massive target lists:
-- **Semaphores**: Rate-limiting is enforced via \syncio.Semaphore\ to prevent local network stack exhaustion.
-- **Worker/Master Pattern**: The \IntelligenceOrchestrator\ enables parallel processing of multiple domains with automated job queuing and recovery.
+### 2. TLS/SSL Forensic Engine
+- **Local Handshake**: Performs a full async TLS handshake without verifying chains (Forensic Mode) to extract raw DER-encoded certificates.
+- **X.509 Analysis**: Parses Issuer, Subject, Validity, Serial, and Subject Alternative Names (SAN) locally using the \cryptography\ library.
+- **Fingerprinting**: Calculates SHA-256 fingerprints and analyzes signature hash algorithms to detect compromised or spoofed certificates.
 
-### 3. Forensic Persistence & Reporting
-- **SQLite Storage**: Every session is indexed in \
-exus_forensics.db\ for historical correlation and time-series analysis.
-- **Automated Artifacts**: The \ReportingEngine\ generates structured Markdown forensics upon task completion, detailing infrastructure anomalies and cryptographic fingerprints.
+### 3. Application Stack Fingerprinting
+- **JA3 Impersonation**: Uses \curl_cffi\ to mimic specific browser cryptographic signatures (Chrome 120), bypassing perimeter Bot-Management (Cloudflare/Akamai).
+- **Security Header Audit**: Passively analyzes CSP, HSTS, X-Frame-Options, and X-Content-Type-Options to identify misconfigurations.
 
-## Security Controls
-- **SSRF Mitigation**: Every target is validated against a comprehensive list of restricted private subnets and metadata endpoints prior to resolution.
-- **OPSEC Hardware Impersonation**: Web modules utilize JA3 fingerprint impersonation to bypass traffic-shaping devices and WAFs at the cryptographic layer.
+### 4. Semantic Correlation (Vector Search)
+- **Local Embeddings**: Generates 384-dimension vectors locally. No data leaves the trust boundary.
+- **Similarity Search**: Uses **FAISS (Facebook AI Similarity Search)** for high-speed Inner Product calculations.
+- **Cross-Project Linking**: Correlates EDR kernel events (\	hreat-detection-suite\) with OSINT findings to identify multi-stage attack chains.
 
-## Build and Deployment
-Nexus is fully containerized using multi-stage Alpine builds with non-privileged user contexts. Refer to \CONTRIBUTING.md\ for setup details.
+## Data Governance & Persistence
+- **SQLite Schema**: All findings are stored in a relational schema with JSON blobs for modular extensibility.
+- **Integrity Auditing**: The \VectorIntegrityAuditor\ routine validates mathematical normalization and detects semantic drift in the embedding model.
+
+## Deployment
+- **Docker**: Hardened Alpine-based containers with unprivileged user contexts (\USER nexususer\).
+- **CI/CD**: Workflows are configured for \workflow_dispatch\ to ensure successful, manually-gated deployments.
