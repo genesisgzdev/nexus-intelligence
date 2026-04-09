@@ -62,3 +62,10 @@ graph TB
 ## Deployment
 - **Docker**: Hardened Alpine-based containers with unprivileged user contexts (\USER nexususer\).
 - **CI/CD**: Workflows are configured for \workflow_dispatch\ to ensure successful, manually-gated deployments.
+
+### 5. Automated Vector Correlation
+Nexus now automatically triggers a semantic search after each report generation.
+- **Contextual Ingestion**: Ingests EDR kernel logs and historical OSINT findings.
+- **Live Search**: Performs a cosine similarity search using the local FAISS index to find related threat patterns.
+- **Integrity Gating**: Automatically executes the \VectorIntegrityAuditor\ to ensure mathematical precision of search results.
+
