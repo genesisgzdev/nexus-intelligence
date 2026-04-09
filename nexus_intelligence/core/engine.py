@@ -1,51 +1,44 @@
-import concurrent.futures
+import asyncio
 from typing import List, Type, Dict, Any
 from nexus_intelligence.analysis.base import BaseModule
+from nexus_intelligence.core.security import SecurityValidator
 
 class IntelligenceEngine:
     """
-    Core execution engine for nexus-intelligence.
-    Orchestrates parallel forensic modules with global reliability controls.
+    Async execution engine for nexus-intelligence.
+    Handles thousands of concurrent requests using an event loop.
     """
     def __init__(self, target: str, config: Any, logger: Any):
         self.target = target
         self.config = config
         self.logger = logger
 
-    def run(self, modules: List[Type[BaseModule]]) -> Dict[str, Any]:
+    async def run(self, modules: List[Type[BaseModule]]) -> Dict[str, Any]:
         """
-        Executes intelligence modules in parallel.
-        Implements strict timing controls to prevent OS-level thread exhaustion (zombie hilos).
+        Executes intelligence modules concurrently via asyncio.
         """
+        if not SecurityValidator.is_safe_target(self.target):
+            self.logger.error(f"SSRF Attempt Blocked: Target {self.target} is in a restricted range.")
+            return {"error": "security_violation", "detail": "Target is restricted"}
+
         results: Dict[str, Any] = {}
         
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=self.config.max_threads,
-            thread_name_prefix="NexusForensic"
-        ) as executor:
-            # Instantiate and submit forensic tasks
-            instances = [m(self.target, self.config, self.logger) for m in modules]
-            futures = {executor.submit(i.execute): i.__class__.__name__ for i in instances}
-            
-            # Global timeout enforcement to prevent stalling on tarpits or corrupt sockets
-            done, not_done = concurrent.futures.wait(
-                futures.keys(), 
-                timeout=self.config.timeout * 2, # Buffer for total execution
-                return_when=concurrent.futures.ALL_COMPLETED
-            )
-            
-            for f in done:
-                mod_name = futures[f]
-                try:
-                    results[mod_name] = f.result()
-                except Exception as e:
-                    self.logger.error(f"Critical module error in {mod_name}: {str(e)}")
-                    results[mod_name] = {"error": "unhandled_module_failure", "detail": str(e)}
-            
-            # Clean up timed-out futures
-            for f in not_done:
-                mod_name = futures[f]
-                self.logger.warning(f"Forced termination of zombie thread: {mod_name}")
-                results[mod_name] = {"error": "module_timeout", "status": "terminated_by_engine"}
-                
+        # Instantiate modules
+        tasks = []
+        for mod_class in modules:
+            instance = mod_class(self.target, self.config, self.logger)
+            # We assume the new execute() method is async
+            tasks.append(asyncio.wait_for(instance.execute(), timeout=self.config.timeout))
+
+        # Parallel execution with result aggregation
+        module_names = [m.__name__ for m in modules]
+        executed_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        for name, res in zip(module_names, executed_results):
+            if isinstance(res, Exception):
+                self.logger.error(f"Module {name} failed: {str(res)}")
+                results[name] = {"error": "module_failure", "detail": str(res)}
+            else:
+                results[name] = res
+
         return results

@@ -1,39 +1,30 @@
 from abc import ABC, abstractmethod
-import time
-import logging
 from typing import Dict, Any
-from nexus_intelligence.core.config import NexusSettings
 
 class BaseModule(ABC):
     """
-    Abstract Base Class for Nexus Intelligence Modules.
-    Provides standard lifecycle hooks for execution and profiling.
+    Abstract base class for all forensic and intelligence modules.
+    Now supports asynchronous execution.
     """
-    def __init__(self, target: str, config: NexusSettings, logger: logging.Logger):
+    def __init__(self, target: str, config: Any, logger: Any):
         self.target = target
         self.config = config
         self.logger = logger
 
-    def execute(self) -> Dict[str, Any]:
+    async def execute(self) -> Dict[str, Any]:
         """
-        Executes the module's core logic with telemetry.
+        Wrapper for async module execution with lifecycle hooks.
         """
-        start = time.time()
+        self.logger.debug(f"Starting module: {self.__class__.__name__}")
         try:
-            res = self.run()
-        except Exception as e:
-            self.logger.error(f"Module {self.__class__.__name__} crashed: {str(e)}")
-            res = {"error": "unhandled_crash", "detail": str(e)}
-            
-        res['_meta'] = {
-            "runtime": round(time.time() - start, 4),
-            "module": self.__class__.__name__
-        }
-        return res
+            result = await self.run()
+            return result
+        finally:
+            self.logger.debug(f"Module finished: {self.__class__.__name__}")
 
     @abstractmethod
-    def run(self) -> Dict[str, Any]:
+    async def run(self) -> Dict[str, Any]:
         """
-        Core logic to be implemented by forensic modules.
+        Primary execution logic to be implemented by child classes.
         """
         pass
