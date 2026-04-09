@@ -2,6 +2,7 @@ import asyncio
 import sys
 import argparse
 import os
+import logging
 from nexus_intelligence.core.engine import IntelligenceEngine
 from nexus_intelligence.core.config import config
 from nexus_intelligence.core.logger import setup_logger
@@ -11,77 +12,77 @@ from nexus_intelligence.core.orchestrator import IntelligenceOrchestrator
 from nexus_intelligence.analysis.intelligence.correlation import VectorCorrelator
 from nexus_intelligence.analysis.intelligence.integrity import VectorIntegrityAuditor
 
-async def run_single_target(target, engine, reporting, db, logger):
+async def execute_forensic_pipeline(target: str, engine: IntelligenceEngine, reporting: ReportingEngine, db: PersistenceManager, logger: logging.Logger):
+    """
+    Orchestrates the full lifecycle of a single target forensic scan.
+    """
     from nexus_intelligence.analysis.dns import DNSIntelligence
     from nexus_intelligence.analysis.web import WebIntelligence
     from nexus_intelligence.analysis.ssl import SSLForensics
     from nexus_intelligence.analysis.mail import MailIntelligence
     from nexus_intelligence.analysis.subdomains import SubdomainDiscovery
 
-    modules = [DNSIntelligence, WebIntelligence, SSLForensics, MailIntelligence, SubdomainDiscovery]
-    results = await engine.run(modules)
+    active_modules = [DNSIntelligence, WebIntelligence, SSLForensics, MailIntelligence, SubdomainDiscovery]
+    execution_results = await engine.run(active_modules)
     
-    for mod_name, data in results.items():
-        await db.save_finding(target, mod_name, data)
+    for module_name, result_data in execution_results.items():
+        await db.save_finding(target, module_name, result_data)
     
-    path = reporting.generate_markdown(target, results)
-    logger.info(f"Report generated: {path}")
+    report_artifact = reporting.generate_markdown(target, execution_results)
+    logger.info(f"Forensic artifact generated: {report_artifact}")
 
-    # --- AUTOMATED VECTOR CORRELATION ---
-    logger.info("Initializing automated semantic correlation...")
-    correlator = VectorCorrelator()
+    # Automated Semantic Linkage
+    v_correlator = VectorCorrelator()
+    edr_log_stream = os.environ.get("TDS_LOG_PATH", "logs/tds_threats.jsonl")
     
-    # Ingest existing EDR and Nexus logs for context
-    # Note: Using neutral environment paths
-    edr_logs = os.environ.get("TDS_LOG_PATH", "logs/tds_threats.jsonl")
-    if os.path.exists(edr_logs):
-        correlator.ingest_edr_logs(edr_logs)
+    if os.path.exists(edr_log_stream):
+        v_correlator.ingest_edr_logs(edr_log_stream)
     
-    # Search for related threats based on current findings
-    query = f"Significant findings for {target}"
-    matches = correlator.find_related_threats(query)
-    
-    if matches:
-        logger.info(f"Found {len(matches)} semantically related historical threats.")
-        for m in matches:
-            logger.info(f"Match [{m['score']}]: {m['artifact']['source']} - {m['artifact']['original'].get('description', 'N/A')}")
-    
-    # --- VECTOR INTEGRITY AUDIT ---
-    auditor = VectorIntegrityAuditor(correlator)
-    audit_results = auditor.audit_index()
-    if not audit_results.get("is_healthy"):
-        logger.warning("Vector index integrity check failed. Semantic results may be degraded.")
+    correlation_matches = v_correlator.find_related_threats(f"Findings for {target}")
+    if correlation_matches:
+        logger.info(f"Cross-project correlation identified {len(correlation_matches)} relevant matches.")
 
-async def main():
-    parser = argparse.ArgumentParser(description="Nexus Intelligence: Async OSINT Platform")
-    parser.add_argument("target", nargs="?", help="Single target domain or IP")
-    parser.add_argument("--file", help="File containing list of targets")
-    parser.add_argument("--concurrency", type=int, default=3, help="Number of parallel workers")
-    args = parser.parse_args()
+    # Mathematical Verification
+    v_auditor = VectorIntegrityAuditor(v_correlator)
+    if not v_auditor.audit_index().get("is_healthy"):
+        logger.warning("Vector index drift detected. Search precision may be compromised.")
 
-    logger = setup_logger(config.verbose)
-    db = PersistenceManager()
-    await db.initialize()
-    reporting = ReportingEngine()
+async def entrypoint():
+    """
+    Application entrypoint for CLI orchestration.
+    """
+    cli_parser = argparse.ArgumentParser(description="Nexus Intelligence: Asynchronous OSINT Runtime")
+    cli_parser.add_argument("target", nargs="?", help="Target domain or IP")
+    cli_parser.add_argument("--file", help="Source file for bulk target ingestion")
+    cli_parser.add_argument("--concurrency", type=int, default=5, help="Async worker pool size")
+    cmd_args = cli_parser.parse_args()
 
-    if args.file:
-        if not os.path.exists(args.file):
-            logger.error(f"Target file {args.file} not found.")
+    runtime_logger = setup_logger(config.verbose)
+    persistence = PersistenceManager()
+    await persistence.initialize()
+    report_gen = ReportingEngine()
+
+    if cmd_args.file:
+        if not os.path.exists(cmd_args.file):
+            runtime_logger.error(f"Configuration Fault: Target file '{cmd_args.file}' not accessible.")
             return
         
-        with open(args.file, "r") as f:
-            targets = [line.strip() for line in f if line.strip()]
+        with open(cmd_args.file, "r") as f:
+            target_list = [line.strip() for line in f if line.strip()]
         
-        engine = IntelligenceEngine("", config, logger)
-        orchestrator = IntelligenceOrchestrator(engine, reporting, logger)
-        await orchestrator.add_targets(targets)
-        await orchestrator.run_parallel(args.concurrency)
+        orch_engine = IntelligenceEngine("", config, runtime_logger)
+        runtime_orchestrator = IntelligenceOrchestrator(orch_engine, report_gen, runtime_logger)
+        await runtime_orchestrator.add_targets(target_list)
+        await runtime_orchestrator.run_parallel(cmd_args.concurrency)
         
-    elif args.target:
-        engine = IntelligenceEngine(args.target, config, logger)
-        await run_single_target(args.target, engine, reporting, db, logger)
+    elif cmd_args.target:
+        core_engine = IntelligenceEngine(cmd_args.target, config, runtime_logger)
+        await execute_forensic_pipeline(cmd_args.target, core_engine, report_gen, persistence, runtime_logger)
     else:
-        parser.print_help()
+        cli_parser.print_help()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(entrypoint())
+    except KeyboardInterrupt:
+        sys.exit(0)

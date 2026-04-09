@@ -5,45 +5,38 @@ from nexus_intelligence.analysis.intelligence.correlation import VectorCorrelato
 
 class VectorIntegrityAuditor:
     """
-    Forensic audit engine for the FAISS Vector Index.
-    Validates embedding consistency, distribution, and recall accuracy.
+    Mathematical validation engine for the FAISS vector index.
+    
+    Verifies unit normalization, semantic determinism, and drift
+    metrics to ensure the reliability of high-dimensional search results.
     """
     def __init__(self, correlator: VectorCorrelator):
         self.correlator = correlator
 
     def audit_index(self) -> Dict[str, Any]:
         """
-        Performs a mathematical sanity check on the loaded vector index.
-        """
-        ntotal = self.correlator.index.ntotal
-        if ntotal == 0:
-            return {"status": "Empty_Index", "code": 0}
-
-        # 1. Verification of Unit Normalization (Cosine Similarity Requirement)
-        # We sample a vector and check if its norm is approximately 1.0
-        sample_idx = 0
-        reconstructed = self.correlator.index.reconstruct(sample_idx)
-        norm = np.linalg.norm(reconstructed)
+        Calculates health metrics for the current vector space.
         
-        # 2. Sensitivity Test: Semantic Drift Detection
-        # Check if identical strings yield identical embeddings (Determinism)
-        test_str = "Suspicious C2 activity detected in Ring 0"
-        emb1 = self.correlator.model.encode([test_str])[0]
-        emb2 = self.correlator.model.encode([test_str])[0]
-        drift = np.linalg.norm(emb1 - emb2)
+        Returns:
+            Dictionary containing normalization norm and determinism drift.
+        """
+        total_vectors = self.correlator.index.ntotal
+        if total_vectors == 0:
+            return {"status": "Null_Index", "is_healthy": False}
+
+        # Vector Normalization Verification
+        sample_vec = self.correlator.index.reconstruct(0)
+        norm_val = np.linalg.norm(sample_vec)
+        
+        # Determinism Drift Check
+        reference_str = "Forensic_Integrity_Baseline_Token"
+        vector_a = self.correlator.model.encode([reference_str])[0]
+        vector_b = self.correlator.model.encode([reference_str])[0]
+        drift_delta = np.linalg.norm(vector_a - vector_b)
 
         return {
-            "index_size": ntotal,
-            "normalization_norm": round(float(norm), 6),
-            "semantic_determinism_drift": round(float(drift), 10),
-            "is_healthy": norm > 0.99 and drift < 1e-6,
-            "engine": "FAISS_IndexFlatIP"
+            "index_cardinality": total_vectors,
+            "l2_normalization_norm": round(float(norm_val), 8),
+            "determinism_drift_delta": round(float(drift_delta), 12),
+            "is_healthy": norm_val > 0.999 and drift_delta < 1e-7
         }
-
-if __name__ == "__main__":
-    # Internal test routine
-    c = VectorCorrelator()
-    auditor = VectorIntegrityAuditor(c)
-    # Adding a dummy to audit
-    c._add_to_index("Health check pattern", {"source": "SYSTEM"})
-    print(json.dumps(auditor.audit_index(), indent=2))

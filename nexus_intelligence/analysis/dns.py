@@ -8,13 +8,15 @@ from nexus_intelligence.analysis.intelligence.entropy import EntropyAnalyzer
 
 class DNSIntelligence(BaseModule):
     """
-    Asynchronous DNS Forensic Module.
-    Direct protocol implementation using standard resolvers and raw queries.
+    Asynchronous DNS forensic analysis module.
+    
+    Directly interacts with name servers to extract resource records
+    without third-party API middle-men.
     """
     async def run(self) -> Dict[str, Any]:
-        self.logger.info(f"Performing DNS forensic analysis: {self.target}")
+        self.logger.info(f"Initiating DNS recursive audit: {self.target}")
         results: Dict[str, Any] = {
-            "target_entropy": EntropyAnalyzer.analyze(self.target)
+            "entropy_score": EntropyAnalyzer.analyze(self.target)
         }
 
         rtypes = ['A', 'AAAA', 'MX', 'NS', 'TXT', 'SOA', 'CAA']
@@ -25,11 +27,10 @@ class DNSIntelligence(BaseModule):
 
         for rtype in rtypes:
             try:
-                # Direct UDP/TCP query, no web APIs involved.
                 answers = await resolver.resolve(self.target, rtype)
                 results[rtype] = [str(r) for r in answers]
             except Exception as e:
-                self.logger.debug(f"DNS lookup failed for {rtype}: {str(e)}")
+                self.logger.debug(f"Resolver fault for {rtype}: {str(e)}")
                 continue
 
         return results
