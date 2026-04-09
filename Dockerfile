@@ -1,30 +1,25 @@
-FROM python:3.11-slim as builder
+FROM python:3.11-alpine
 
-# Optimization: Use specialized build-time environment
-WORKDIR /build
+WORKDIR /app
+
+# Install network utilities and build dependencies for cryptography/lxml
+RUN apk add --no-cache \
+    gcc \
+    musl-dev \
+    libffi-dev \
+    openssl-dev \
+    libxml2-dev \
+    libxslt-dev \
+    bind-tools \
+    tcpdump
+
 COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-FROM python:3.11-slim
-
-# OPSEC: Isolation via non-privileged user
-RUN useradd -m nexus -s /bin/bash
-WORKDIR /home/nexus/app
-
-# Import dependencies from builder
-COPY --from=builder /root/.local /home/nexus/.local
-ENV PATH=/home/nexus/.local/bin:$PATH
-
-# Deploy application and fix permissions
 COPY . .
-RUN chown -R nexus:nexus /home/nexus/app
 
-USER nexus
-
-# Configuration defaults
-ENV NEXUS_TIMEOUT=15
-ENV NEXUS_THREADS=8
-ENV NEXUS_OUTPUT_DIR=reports
+# Run as non-privileged user for OPSEC
+RUN adduser -D nexususer
+USER nexususer
 
 ENTRYPOINT ["python", "-m", "nexus_intelligence"]
-CMD ["--help"]
