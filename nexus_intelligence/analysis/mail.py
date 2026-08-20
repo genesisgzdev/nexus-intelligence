@@ -14,7 +14,9 @@ class MailIntelligence(BaseModule):
             resolver = dns.asyncresolver.Resolver()
             answers = await resolver.resolve(self.target, 'MX')
             return [str(r.exchange).rstrip('.') for r in answers]
-        except: return []
+        except Exception as exc:
+            self.logger.debug("MX lookup failed for %s: %s", self.target, exc)
+            return []
 
     async def check_policy(self, rtype: str) -> str:
         try:
@@ -26,7 +28,9 @@ class MailIntelligence(BaseModule):
                 txt = str(r).lower()
                 if "v=spf1" in txt or "v=dmarc1" in txt: return str(r)
             return "No Policy Detected"
-        except: return "Lookup Failed"
+        except Exception as exc:
+            self.logger.debug("%s policy lookup failed for %s: %s", rtype, self.target, exc)
+            return "Lookup Failed"
 
     async def grab_smtp_banner(self, host: str) -> str:
         try:
@@ -37,7 +41,9 @@ class MailIntelligence(BaseModule):
             writer.close()
             await writer.wait_closed()
             return banner.decode().strip()
-        except: return "Timeout/Refused"
+        except Exception as exc:
+            self.logger.debug("SMTP banner lookup failed for %s: %s", host, exc)
+            return "Timeout/Refused"
 
     async def run(self) -> Dict[str, Any]:
         self.logger.info(f"Analyzing mail infrastructure: {self.target}")

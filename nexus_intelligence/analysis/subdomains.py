@@ -1,5 +1,6 @@
 import asyncio
 import dns.asyncresolver
+import uuid
 from typing import Dict, Any, List
 from nexus_intelligence.analysis.base import BaseModule
 
@@ -21,7 +22,8 @@ class SubdomainDiscovery(BaseModule):
             resolver = dns.asyncresolver.Resolver()
             await resolver.resolve(f"nexus-wildcard-check-{uuid.uuid4().hex}.{self.target}", 'A')
             return True
-        except: return False
+        except Exception:
+            return False
 
     async def _resolve(self, sub: str, semaphore: asyncio.Semaphore) -> str:
         async with semaphore:
@@ -31,7 +33,8 @@ class SubdomainDiscovery(BaseModule):
                 # We query 'A' and 'CNAME' records concurrently
                 await resolver.resolve(full, 'A')
                 return full
-            except: return ""
+            except Exception:
+                return ""
 
     async def run(self) -> Dict[str, Any]:
         self.logger.info(f"Enumerating subdomains: {self.target}")

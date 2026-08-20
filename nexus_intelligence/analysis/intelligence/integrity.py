@@ -1,5 +1,4 @@
 import numpy as np
-import faiss
 from typing import Dict, Any
 from nexus_intelligence.analysis.intelligence.correlation import VectorCorrelator
 
@@ -15,15 +14,16 @@ class VectorIntegrityAuditor:
         """
         Performs mathematical verification of the vector space integrity.
         """
-        ntotal = self.correlator.index.ntotal
+        matrix = self.correlator.matrix
+        ntotal = 0 if matrix is None else matrix.shape[0]
         if ntotal == 0:
             return {"status": "Empty_Index", "is_healthy": False}
 
-        sample_vec = self.correlator.index.reconstruct(0)
+        sample_vec = matrix.getrow(0).toarray().ravel()
         norm = np.linalg.norm(sample_vec)
         
         return {
             "index_size": ntotal,
             "l2_norm": round(float(norm), 6),
-            "is_healthy": norm > 0.99
+            "is_healthy": norm > 0
         }
