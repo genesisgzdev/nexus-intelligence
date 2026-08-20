@@ -1,68 +1,80 @@
-# Nexus Intelligence Framework (v1.6.0)
+# Nexus Intelligence
 
-## Technical Specification
-Nexus Intelligence is a distributed, asynchronous forensic orchestration platform designed for autonomous Open Source Intelligence (OSINT) and cross-project threat correlation. It operates under a **Zero-API Mandate**, utilizing native network protocols to interact directly with target infrastructure.
+Nexus es una herramienta local para reunir señales de OSINT y análisis forense en un mismo informe. Ejecuta consultas asíncronas de DNS, inspecciones TLS, revisión HTTP y lectura de banners de correo. Guarda los hallazgos en SQLite para que cada ejecución pueda revisarse después.
 
-## System Architecture
+Está pensada para investigar dominios y activos propios o aquellos para los que tengas autorización. No es un servicio de reputación externo ni pretende convertir una señal aislada en una conclusión definitiva.
 
-`mermaid
-graph TB
-    subgraph Input_Layer [Orchestration]
-        M[__main__.py] -->|argparse| ORCH[IntelligenceOrchestrator]
-        ORCH -->|asyncio.Queue| Q[Task Queue]
-    end
+## Flujo de trabajo
 
-    subgraph Analysis_Layer [Forensic Engines]
-        Q --> W1[Worker 1]
-        Q --> W2[Worker 2]
-        W1 & W2 --> DNS[DNS: raw UDP/53]
-        W1 & W2 --> SSL[SSL: Local X.509 Parser]
-        W1 & W2 --> WEB[Web: JA3 Impersonation]
-        W1 & W2 --> MAIL[Mail: SMTP Banner Grabbing]
-    end
+```text
+objetivo o archivo de objetivos
+          |
+          v
+workers asyncio -> DNS | TLS | web | mail
+          |
+          v
+SQLite + hallazgos JSON
+          |
+          v
+TF-IDF local -> similitud coseno -> informe Markdown
+```
 
-    subgraph Intelligence_Layer [AI Correlation]
-        DNS & SSL & WEB & MAIL -->|JSONL| DB[(SQLite Persistence)]
-        DB -->|Text Context| VEC[TF-IDF VectorCorrelator]
-        VEC -->|Cosine Similarity| REL[Related Threats Mapping]
-    end
+Los módulos actuales cubren:
 
-    subgraph Output_Layer [Forensics]
-        REL -->|Markdown| REP[Automated ReportingEngine]
-    end
-`
+- registros DNS como A, AAAA, MX, TXT, SOA y CAA
+- certificado X.509, fechas, emisor, SAN y huella SHA-256
+- cabeceras de seguridad HTTP y metadatos de la respuesta
+- banners SMTP cuando el servicio responde
+- correlación local con TF-IDF y `scikit-learn`
+- ingesta opcional de eventos JSONL de [Threat Detection Suite](https://github.com/genesisgzdev/threat-detection-suite)
 
-## Core Modules & Protocol Implementation
+La correlación es una matriz TF-IDF reproducible. No depende de FAISS, de embeddings remotos ni de una API de inteligencia externa.
 
-### 1. Advanced DNS Forensics
-- **Mechanism**: Utilizes \dns.asyncresolver\ for non-blocking recursion.
-- **Protocol Integrity**: Bypasses HTTPS-based resolvers (DoH) to interact directly with nameservers, capturing raw record sets (A, AAAA, MX, TXT, SOA, CAA).
-- **Security**: Implements SSRF gating, preventing queries to internal RFC 1918 addresses or cloud metadata endpoints.
+## Instalación
 
-### 2. TLS/SSL Forensic Engine
-- **Local Handshake**: Performs a full async TLS handshake without verifying chains (Forensic Mode) to extract raw DER-encoded certificates.
-- **X.509 Analysis**: Parses Issuer, Subject, Validity, Serial, and Subject Alternative Names (SAN) locally using the \cryptography\ library.
-- **Fingerprinting**: Calculates SHA-256 fingerprints and analyzes signature hash algorithms to detect compromised or spoofed certificates.
+Requiere Python 3.11 o superior. Con `uv`:
 
-### 3. Application Stack Fingerprinting
-- **JA3 Impersonation**: Uses \curl_cffi\ to mimic specific browser cryptographic signatures (Chrome 120), bypassing perimeter Bot-Management (Cloudflare/Akamai).
-- **Security Header Audit**: Passively analyzes CSP, HSTS, X-Frame-Options, and X-Content-Type-Options to identify misconfigurations.
+```bash
+uv sync
+uv run nexus-intel example.com
+```
 
-### 4. Semantic Correlation (TF-IDF)
-- **Local features**: Builds a reproducible TF-IDF matrix from persisted findings and optional EDR JSONL telemetry.
-- **Similarity search**: Uses cosine similarity over the actual scikit-learn matrix; no FAISS or unavailable embedding service is required.
-- **Cross-Project Linking**: Correlates EDR kernel events (\	hreat-detection-suite\) with OSINT findings to identify multi-stage attack chains.
+Con pip:
 
-## Data Governance & Persistence
-- **SQLite Schema**: All findings are stored in a relational schema with JSON blobs for modular extensibility.
-- **Integrity Auditing**: The `VectorIntegrityAuditor` validates matrix size and unit normalization of the active TF-IDF vectors.
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e '.[dev]'
+nexus-intel example.com
+```
 
-## Deployment
-- **Docker**: Hardened Alpine-based containers with unprivileged user contexts (\USER nexususer\).
-- **CI/CD**: Workflows are configured for \workflow_dispatch\ to ensure successful, manually-gated deployments.
+También puedes pasar objetivos desde un archivo y ajustar el número de workers:
 
-### 5. Automated Correlation
-Nexus triggers local semantic search after report generation.
-- **Contextual ingestion**: Reads optional EDR JSONL and historical OSINT findings from SQLite.
-- **Live search**: Performs cosine similarity over the TF-IDF matrix.
-- **Integrity gating**: Audits the active matrix before treating its vectors as healthy.
+```bash
+nexus-intel --file targets.txt --concurrency 8
+```
+
+Usa `nexus-intel --help` para ver las opciones disponibles y los paths de salida configurables.
+
+## Datos y resultados
+
+Los hallazgos se conservan en SQLite junto con sus datos JSON. Los informes Markdown se generan a partir de esos resultados y la auditoría de integridad comprueba que la matriz activa tenga el tamaño y la normalización esperados.
+
+Las consultas de red dependen del objetivo, del DNS y de los servicios que estén disponibles en ese momento. Un timeout o un banner ausente es un resultado incompleto, no una prueba de que el activo sea seguro.
+
+## Desarrollo
+
+```bash
+uv sync --extra dev
+uv run pytest
+```
+
+La entrada de consola es `nexus-intel` y apunta a `nexus_intelligence.__main__:main`. El proyecto mantiene locks de dependencias para que las instalaciones y los tests sean repetibles.
+
+## Uso responsable
+
+Ejecuta Nexus solo sobre infraestructura propia o con permiso explícito. Respeta los límites de la red, evita cargas innecesarias y trata los informes como material sensible.
+
+## Licencia
+
+El metadato del paquete declara MIT. Si vas a redistribuir una copia, revisa también el estado del archivo de licencia en la versión exacta que uses.
