@@ -77,4 +77,4 @@ Ejecuta Nexus solo sobre infraestructura propia o con permiso explícito. Respet
 
 ## Licencia
 
-El metadato del paquete declara MIT. Si vas a redistribuir una copia, revisa también el estado del archivo de licencia en la versión exacta que uses.
+MIT. Consulta [LICENSE](LICENSE).
