@@ -1,5 +1,4 @@
 import asyncio
-import sys
 import os
 from nexus_intelligence.analysis.intelligence.correlation import VectorCorrelator
 from nexus_intelligence.core.persistence import PersistenceManager
@@ -7,11 +6,11 @@ from nexus_intelligence.core.persistence import PersistenceManager
 async def run_correlation():
     print("--- Starting Multi-Project Semantic Correlation ---")
     
-    # Paths to source data
-    edr_logs = "C:/Users/Genesisif/Desktop/TDS-MegaTicketing-Industrial/threat-detection-suite/tds_threat_events.jsonl"
+    edr_logs = os.environ.get("TDS_LOG_PATH", "logs/tds_threats.jsonl")
+    db_path = os.environ.get("NEXUS_DB_PATH", "nexus_forensics.db")
     
     correlator = VectorCorrelator()
-    db = PersistenceManager()
+    db = PersistenceManager(db_path)
     await db.initialize()
 
     # 1. Ingest EDR Telemetry
@@ -20,9 +19,8 @@ async def run_correlation():
 
     # 2. Ingest Nexus Forensic Database
     print("[*] Ingesting Nexus OSINT findings...")
-    # Mocking DB fetch for demo - in production, we'd query SQLite
-    # db_results = await db.get_all_findings()
-    # correlator.ingest_nexus_results(db_results)
+    db_results = await db.get_all_findings()
+    correlator.ingest_nexus_results(db_results)
 
     # 3. Execution: Cross-search
     # Example: Find if an EDR network alert matches any OSINT record

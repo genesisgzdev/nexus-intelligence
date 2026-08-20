@@ -10,10 +10,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     dnsutils \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
+COPY requirements.txt requirements.lock pyproject.toml README.md ./
 COPY . .
+
+RUN pip install --no-cache-dir -r requirements.lock
 
 # Seguridad Operativa: Usuario no privilegiado
 RUN useradd -m nexususer

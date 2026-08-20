@@ -1,6 +1,5 @@
 import asyncio
 import dns.asyncresolver
-import socket
 from typing import Dict, Any, List
 from nexus_intelligence.analysis.base import BaseModule
 
@@ -22,7 +21,7 @@ class MailIntelligence(BaseModule):
         try:
             resolver = dns.asyncresolver.Resolver()
             # Prefix for DMARC is _dmarc.
-            target = f"_dmarc.{self.target}" if rtype == 'TXT' and "DMARC" in rtype else self.target
+            target = f"_dmarc.{self.target}" if rtype.upper() == "DMARC" else self.target
             answers = await resolver.resolve(target, 'TXT')
             for r in answers:
                 txt = str(r).lower()
@@ -47,11 +46,12 @@ class MailIntelligence(BaseModule):
 
     async def run(self) -> Dict[str, Any]:
         self.logger.info(f"Analyzing mail infrastructure: {self.target}")
-        mx_servers = await this.get_mx_records()
+        mx_servers = await self.get_mx_records()
         
         res = {
             "mx_records": mx_servers,
-            "spf_record": await self.check_policy('SPF'),
+            "spf_record": await self.check_policy("SPF"),
+            "dmarc_record": await self.check_policy("DMARC"),
             "banners": {}
         }
 

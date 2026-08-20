@@ -1,7 +1,6 @@
 import aiosqlite
 import json
-import os
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 class PersistenceManager:
     """
@@ -31,3 +30,21 @@ class PersistenceManager:
                 (target, module, json.dumps(data))
             )
             await db.commit()
+
+    async def get_all_findings(self) -> List[Dict[str, Any]]:
+        """Return persisted findings in the shape consumed by VectorCorrelator."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute(
+                "SELECT target, module, data, timestamp FROM intelligence ORDER BY id"
+            )
+            rows = await cursor.fetchall()
+        return [
+            {
+                "target": row["target"],
+                "module": row["module"],
+                "data": json.loads(row["data"]),
+                "timestamp": row["timestamp"],
+            }
+            for row in rows
+        ]

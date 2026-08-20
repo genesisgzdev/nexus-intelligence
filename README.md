@@ -23,13 +23,11 @@ graph TB
 
     subgraph Intelligence_Layer [AI Correlation]
         DNS & SSL & WEB & MAIL -->|JSONL| DB[(SQLite Persistence)]
-        DB -->|Text Context| VEC[VectorCorrelator]
-        VEC -->|Sentence-Transformers| EMB[all-MiniLM-L6-v2]
-        EMB -->|Inner Product| FAISS[FAISS Vector Index]
+        DB -->|Text Context| VEC[TF-IDF VectorCorrelator]
+        VEC -->|Cosine Similarity| REL[Related Threats Mapping]
     end
 
     subgraph Output_Layer [Forensics]
-        FAISS -->|Recall@K| REL[Related Threats Mapping]
         REL -->|Markdown| REP[Automated ReportingEngine]
     end
 `
@@ -50,22 +48,21 @@ graph TB
 - **JA3 Impersonation**: Uses \curl_cffi\ to mimic specific browser cryptographic signatures (Chrome 120), bypassing perimeter Bot-Management (Cloudflare/Akamai).
 - **Security Header Audit**: Passively analyzes CSP, HSTS, X-Frame-Options, and X-Content-Type-Options to identify misconfigurations.
 
-### 4. Semantic Correlation (Vector Search)
-- **Local Embeddings**: Generates 384-dimension vectors locally. No data leaves the trust boundary.
-- **Similarity Search**: Uses **FAISS (Facebook AI Similarity Search)** for high-speed Inner Product calculations.
+### 4. Semantic Correlation (TF-IDF)
+- **Local features**: Builds a reproducible TF-IDF matrix from persisted findings and optional EDR JSONL telemetry.
+- **Similarity search**: Uses cosine similarity over the actual scikit-learn matrix; no FAISS or unavailable embedding service is required.
 - **Cross-Project Linking**: Correlates EDR kernel events (\	hreat-detection-suite\) with OSINT findings to identify multi-stage attack chains.
 
 ## Data Governance & Persistence
 - **SQLite Schema**: All findings are stored in a relational schema with JSON blobs for modular extensibility.
-- **Integrity Auditing**: The \VectorIntegrityAuditor\ routine validates mathematical normalization and detects semantic drift in the embedding model.
+- **Integrity Auditing**: The `VectorIntegrityAuditor` validates matrix size and unit normalization of the active TF-IDF vectors.
 
 ## Deployment
 - **Docker**: Hardened Alpine-based containers with unprivileged user contexts (\USER nexususer\).
 - **CI/CD**: Workflows are configured for \workflow_dispatch\ to ensure successful, manually-gated deployments.
 
-### 5. Automated Vector Correlation
-Nexus now automatically triggers a semantic search after each report generation.
-- **Contextual Ingestion**: Ingests EDR kernel logs and historical OSINT findings.
-- **Live Search**: Performs a cosine similarity search using the local FAISS index to find related threat patterns.
-- **Integrity Gating**: Automatically executes the \VectorIntegrityAuditor\ to ensure mathematical precision of search results.
-
+### 5. Automated Correlation
+Nexus triggers local semantic search after report generation.
+- **Contextual ingestion**: Reads optional EDR JSONL and historical OSINT findings from SQLite.
+- **Live search**: Performs cosine similarity over the TF-IDF matrix.
+- **Integrity gating**: Audits the active matrix before treating its vectors as healthy.
