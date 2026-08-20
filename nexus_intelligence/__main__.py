@@ -37,7 +37,8 @@ async def execute_forensic_pipeline(target: str, engine: IntelligenceEngine, rep
     
     if os.path.exists(edr_log_stream):
         v_correlator.ingest_edr_logs(edr_log_stream)
-    
+    v_correlator.ingest_nexus_results(await db.get_all_findings())
+
     correlation_matches = v_correlator.find_related_threats(f"Findings for {target}")
     if correlation_matches:
         logger.info(f"Cross-project correlation identified {len(correlation_matches)} relevant matches.")
@@ -81,8 +82,13 @@ async def entrypoint():
     else:
         cli_parser.print_help()
 
-if __name__ == "__main__":
+
+def main():
+    """Console-script entry point installed by the package metadata."""
     try:
         asyncio.run(entrypoint())
     except KeyboardInterrupt:
-        sys.exit(0)
+        return 130
+
+if __name__ == "__main__":
+    sys.exit(main())

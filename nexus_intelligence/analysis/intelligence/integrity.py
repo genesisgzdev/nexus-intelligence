@@ -4,8 +4,8 @@ from nexus_intelligence.analysis.intelligence.correlation import VectorCorrelato
 
 class VectorIntegrityAuditor:
     """
-    Forensic audit engine for the FAISS Vector Index.
-    Validates unit normalization and semantic determinism.
+    Forensic audit engine for the local TF-IDF matrix.
+    Validates non-empty vectors and unit normalization.
     """
     def __init__(self, correlator: VectorCorrelator):
         self.correlator = correlator
@@ -22,8 +22,10 @@ class VectorIntegrityAuditor:
         sample_vec = matrix.getrow(0).toarray().ravel()
         norm = np.linalg.norm(sample_vec)
         
+        healthy = np.isclose(norm, 1.0, atol=1e-6)
         return {
             "index_size": ntotal,
             "l2_norm": round(float(norm), 6),
-            "is_healthy": norm > 0
+            "is_healthy": bool(healthy),
+            "vectorizer": "tfidf",
         }

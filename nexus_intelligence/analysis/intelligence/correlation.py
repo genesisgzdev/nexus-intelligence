@@ -22,14 +22,15 @@ class VectorCorrelator:
 
     def ingest_edr_logs(self, log_path: str):
         if not os.path.exists(log_path): return
-        with open(log_path, 'r') as f:
+        with open(log_path, "r", encoding="utf-8") as f:
             for line in f:
                 try:
                     data = json.loads(line)
                     text = f"EDR: {data.get('category')} {data.get('description')} {data.get('ioc')}"
                     self.corpus.append(text)
                     self.metadata.append({"source": "EDR", "original": data})
-                except: continue
+                except (json.JSONDecodeError, TypeError):
+                    continue
         self._update_index()
 
     def ingest_nexus_results(self, db_results: List[Dict[str, Any]]):
