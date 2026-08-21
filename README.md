@@ -54,7 +54,7 @@ También puedes pasar objetivos desde un archivo y ajustar el número de workers
 nexus-intel --file targets.txt --concurrency 8
 ```
 
-Usa `nexus-intel --help` para ver las opciones disponibles y los paths de salida configurables.
+El modo bulk ejecuta los cinco módulos por objetivo, guarda cada hallazgo en SQLite y genera un informe por objetivo. La correlación con el histórico y con TDS se ejecuta en el flujo de objetivo único, no al terminar un archivo completo. Usa `nexus-intel --help` para ver las opciones disponibles.
 
 ## Datos y resultados
 
@@ -70,6 +70,8 @@ uv run pytest
 ```
 
 La entrada de consola es `nexus-intel` y apunta a `nexus_intelligence.__main__:main`. El proyecto mantiene locks de dependencias para que las instalaciones y los tests sean repetibles.
+
+El mapa de ejecución real está en [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Uso responsable
 

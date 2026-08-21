@@ -53,3 +53,7 @@ nexus-intel = "nexus_intelligence.__main__:main"
 where = ["."]
 include = ["nexus_intelligence*"]
 exclude = ["tests*", "docs*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
