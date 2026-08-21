@@ -2,6 +2,10 @@
 
 Nexus no es una API remota: es un proceso CLI que ejecuta módulos de red, guarda observaciones locales y construye correlación TF-IDF en memoria.
 
+## Cómo leerlo
+
+La primera figura muestra los componentes conectados. Las dos secuencias separan objetivo único y archivo bulk porque terminan con análisis distintos. La sección final explica cómo interpretar un hallazgo.
+
 ## 1. Componentes reales
 
 ~~~mermaid
