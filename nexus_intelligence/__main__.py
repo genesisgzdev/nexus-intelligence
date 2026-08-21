@@ -55,7 +55,7 @@ async def entrypoint():
     cli_parser = argparse.ArgumentParser(description="Nexus Intelligence: Asynchronous OSINT Runtime")
     cli_parser.add_argument("target", nargs="?", help="Target domain or IP")
     cli_parser.add_argument("--file", help="Source file for bulk target ingestion")
-    cli_parser.add_argument("--concurrency", type=int, default=5, help="Async worker pool size")
+    cli_parser.add_argument("--concurrency", type=int, default=5, help="Async worker pool size for --file (1-100)")
     cmd_args = cli_parser.parse_args()
 
     runtime_logger = setup_logger(config.verbose)
@@ -72,9 +72,10 @@ async def entrypoint():
             target_list = [line.strip() for line in f if line.strip()]
         
         orch_engine = IntelligenceEngine("", config, runtime_logger)
-        runtime_orchestrator = IntelligenceOrchestrator(orch_engine, report_gen, runtime_logger)
+        concurrency = max(1, min(cmd_args.concurrency, config.max_concurrent))
+        runtime_orchestrator = IntelligenceOrchestrator(orch_engine, report_gen, runtime_logger, persistence)
         await runtime_orchestrator.add_targets(target_list)
-        await runtime_orchestrator.run_parallel(cmd_args.concurrency)
+        await runtime_orchestrator.run_parallel(concurrency)
         
     elif cmd_args.target:
         core_engine = IntelligenceEngine(cmd_args.target, config, runtime_logger)

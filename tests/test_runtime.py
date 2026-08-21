@@ -8,6 +8,7 @@ from nexus_intelligence.analysis.intelligence.integrity import VectorIntegrityAu
 from nexus_intelligence.analysis.mail import MailIntelligence
 from nexus_intelligence.analysis.subdomains import SubdomainDiscovery
 from nexus_intelligence.core.persistence import PersistenceManager
+from nexus_intelligence.core.orchestrator import IntelligenceOrchestrator
 
 
 LOGGER = logging.getLogger("nexus-tests")
@@ -122,3 +123,35 @@ def test_edr_ingestion_skips_malformed_json(tmp_path):
     correlator.ingest_edr_logs(str(path))
 
     assert len(correlator.metadata) == 1
+
+
+@pytest.mark.asyncio
+async def test_bulk_orchestrator_uses_queued_target_and_persists(monkeypatch, tmp_path):
+    class FakeEngine:
+        config = StaticConfig()
+
+        def __init__(self, target, config, logger):
+            self.target = target
+            self.config = config
+
+        async def run(self, modules):
+            return {"DNSIntelligence": {"target_seen": self.target}}
+
+    class Reporter:
+        def generate_markdown(self, target, results):
+            return str(tmp_path / f"{target}.md")
+
+    class Persistence:
+        def __init__(self):
+            self.saved = []
+
+        async def save_finding(self, target, module, data):
+            self.saved.append((target, module, data))
+
+    monkeypatch.setattr("nexus_intelligence.core.orchestrator.IntelligenceEngine", FakeEngine)
+    persistence = Persistence()
+    orchestrator = IntelligenceOrchestrator(FakeEngine("", StaticConfig(), LOGGER), Reporter(), LOGGER, persistence)
+    await orchestrator.add_targets(["alpha.test"])
+    await orchestrator.run_parallel(1)
+
+    assert persistence.saved == [("alpha.test", "DNSIntelligence", {"target_seen": "alpha.test"})]
