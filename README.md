@@ -1,10 +1,12 @@
 # Nexus Intelligence
 
-Nexus es una herramienta local para reunir señales de OSINT y análisis forense en un mismo informe. Ejecuta consultas asíncronas de DNS, inspecciones TLS, revisión HTTP y lectura de banners de correo. Guarda los hallazgos en SQLite para que cada ejecución pueda revisarse después.
+Nexus reúne señales observables de DNS, TLS, HTTP, correo y subdominios en informes locales revisables. No convierte una señal aislada en una sentencia de reputación.
+
+En 30 segundos: entrega un dominio o un archivo de objetivos, los módulos consultan la red con límites propios, SQLite conserva los hallazgos y el informe Markdown explica lo observado. El flujo de objetivo único puede añadir correlación TF-IDF local y eventos JSONL de TDS. No depende de una API de reputación ni de un índice vectorial remoto.
 
 Está pensada para investigar dominios y activos propios o aquellos para los que tengas autorización. No es un servicio de reputación externo ni pretende convertir una señal aislada en una conclusión definitiva.
 
-## Flujo de trabajo
+## Flujo que explica el producto
 
 ```text
 objetivo o archivo de objetivos
@@ -18,6 +20,8 @@ SQLite + hallazgos JSON
           v
 TF-IDF local -> similitud coseno -> informe Markdown
 ```
+
+La vista corta separa observación, persistencia y análisis. El diagrama completo de workers, timeouts, errores, bulk y auditoría está en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 Los módulos actuales cubren:
 
@@ -58,9 +62,9 @@ El modo bulk ejecuta los cinco módulos por objetivo, guarda cada hallazgo en SQ
 
 ## Datos y resultados
 
-Los hallazgos se conservan en SQLite junto con sus datos JSON. Los informes Markdown se generan a partir de esos resultados y la auditoría de integridad comprueba que la matriz activa tenga el tamaño y la normalización esperados.
+Los hallazgos se conservan en SQLite junto con sus datos JSON. Los informes Markdown se generan a partir de esos resultados y la auditoría de integridad comprueba que la matriz activa tenga el tamaño y la normalización esperados. Eso respalda una observación reproducible del momento, no una garantía sobre el activo.
 
-Las consultas de red dependen del objetivo, del DNS y de los servicios que estén disponibles en ese momento. Un timeout o un banner ausente es un resultado incompleto, no una prueba de que el activo sea seguro.
+Las consultas de red dependen del objetivo, del DNS y de los servicios que estén disponibles en ese momento. Un timeout o un banner ausente es un resultado incompleto, no una prueba de que el activo sea seguro. Las consultas salen hacia el objetivo autorizado: “local-first” no significa “sin tráfico de red”.
 
 ## Desarrollo
 
@@ -71,7 +75,7 @@ uv run pytest
 
 La entrada de consola es `nexus-intel` y apunta a `nexus_intelligence.__main__:main`. El proyecto mantiene locks de dependencias para que las instalaciones y los tests sean repetibles.
 
-El mapa de ejecución real está en [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+El mapa de ejecución real, la diferencia entre objetivo único y bulk y la forma de interpretar los resultados están en [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Para cambios de comportamiento, revisa primero [`tests/test_runtime.py`](tests/test_runtime.py).
 
 ## Uso responsable
 
