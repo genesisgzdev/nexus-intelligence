@@ -61,7 +61,7 @@ async def entrypoint():
     runtime_logger = setup_logger(config.verbose)
     persistence = PersistenceManager()
     await persistence.initialize()
-    report_gen = ReportingEngine()
+    report_gen = ReportingEngine(config.output_dir)
 
     if cmd_args.file:
         if not os.path.exists(cmd_args.file):
