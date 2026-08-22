@@ -11,6 +11,7 @@ from nexus_intelligence.analysis.subdomains import SubdomainDiscovery
 from nexus_intelligence.core.persistence import PersistenceManager
 from nexus_intelligence.core.orchestrator import IntelligenceOrchestrator
 from nexus_intelligence.core.security import SecurityValidator
+from nexus_intelligence.core.reporting import ReportingEngine
 
 
 LOGGER = logging.getLogger("nexus-tests")
@@ -31,6 +32,17 @@ def test_security_validator_accepts_public_dns_answers(monkeypatch):
     monkeypatch.setattr(socket, "getaddrinfo", lambda *args, **kwargs: answers)
 
     assert SecurityValidator.is_safe_target("public.example") is True
+
+
+def test_reporting_uses_private_safe_filename_and_escapes_markup(tmp_path):
+    path = ReportingEngine(str(tmp_path)).generate_markdown(
+        "../../<script>alert(1)</script>",
+        {"web": {"banner": "```\n<script>alert(2)</script>"}},
+    )
+    report = open(path, encoding="utf-8").read()
+    assert path.startswith(str(tmp_path))
+    assert "<script>" not in report
+    assert "alert(2)" in report
 
 
 class StaticConfig:

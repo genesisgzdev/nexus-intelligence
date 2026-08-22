@@ -32,6 +32,8 @@ Los módulos actuales cubren:
 - correlación local con TF-IDF y `scikit-learn`
 - ingesta opcional de eventos JSONL de [Threat Detection Suite](https://github.com/genesisgzdev/threat-detection-suite)
 
+La validación de objetivos comprueba todas las respuestas DNS y bloquea rangos privados, loopback, link-local, multicast, reservados y no especificados. El módulo web no sigue redirects a ciegas: cada salto HTTP(S) vuelve a validarse y hay un máximo de cinco.
+
 La correlación es una matriz TF-IDF reproducible. No depende de FAISS, de embeddings remotos ni de una API de inteligencia externa.
 
 ## Instalación
@@ -58,11 +60,11 @@ También puedes pasar objetivos desde un archivo y ajustar el número de workers
 nexus-intel --file targets.txt --concurrency 8
 ```
 
-El modo bulk ejecuta los cinco módulos por objetivo, guarda cada hallazgo en SQLite y genera un informe por objetivo. La correlación con el histórico y con TDS se ejecuta en el flujo de objetivo único, no al terminar un archivo completo. Usa `nexus-intel --help` para ver las opciones disponibles.
+El modo bulk ejecuta los cinco módulos por objetivo, guarda cada hallazgo en SQLite y genera un informe por objetivo. La correlación con el histórico y con TDS se ejecuta en el flujo de objetivo único, no al terminar un archivo completo. SQLite usa WAL y una cola de escritura por proceso para evitar que los workers compitan por el mismo commit. Usa `nexus-intel --help` para ver las opciones disponibles.
 
 ## Datos y resultados
 
-Los hallazgos se conservan en SQLite junto con sus datos JSON. Los informes Markdown se generan a partir de esos resultados y la auditoría de integridad comprueba que la matriz activa tenga el tamaño y la normalización esperados. Eso respalda una observación reproducible del momento, no una garantía sobre el activo.
+Los hallazgos se conservan en SQLite junto con sus datos JSON. Los informes Markdown se generan a partir de esos resultados, escapan los datos observados y se guardan con nombre seguro y permisos `0600`. La auditoría de integridad comprueba que la matriz activa tenga el tamaño y la normalización esperados. Eso respalda una observación reproducible del momento, no una garantía sobre el activo.
 
 Las consultas de red dependen del objetivo, del DNS y de los servicios que estén disponibles en ese momento. Un timeout o un banner ausente es un resultado incompleto, no una prueba de que el activo sea seguro. Las consultas salen hacia el objetivo autorizado: “local-first” no significa “sin tráfico de red”.
 

@@ -1,6 +1,8 @@
 import os
 import json
 import html
+import re
+import hashlib
 from datetime import datetime
 from typing import Dict, Any
 
@@ -30,11 +32,14 @@ class ReportingEngine:
                 continue
             
             # Encapsulate all output in secure blocks
-            clean_json = json.dumps(data, indent=2)
-            report += "```json\n" + clean_json + "\n```\n\n"
+            clean_json = html.escape(json.dumps(data, indent=2, ensure_ascii=False))
+            report += "<pre><code>" + clean_json + "</code></pre>\n\n"
         
-        filename = f"report_{target.replace('.','_')}_{datetime.now().strftime('%H%M%S')}.md"
+        slug = re.sub(r"[^A-Za-z0-9._-]+", "_", target).strip("._")[:80] or "target"
+        digest = hashlib.sha256(target.encode("utf-8")).hexdigest()[:12]
+        filename = f"report_{slug}_{digest}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
         path = os.path.join(self.output_dir, filename)
         with open(path, "w", encoding="utf-8") as f:
             f.write(report)
+        os.chmod(path, 0o600)
         return path
