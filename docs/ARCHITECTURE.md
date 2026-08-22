@@ -18,8 +18,8 @@ flowchart LR
     ONE --> E[IntelligenceEngine]
     BT --> E
     E --> SAFE[SecurityValidator]
-    E --> MOD[DNS / Web / SSL / Mail / Subdomains]
-    MOD --> DB[(PersistenceManager SQLite intelligence)]
+    E --> MOD[DNS Web SSL Mail and Subdomains]
+    MOD --> DB[(SQLite findings)]
     MOD --> REP[ReportingEngine Markdown]
     DB --> V[VectorCorrelator scikit-learn TF-IDF]
     TDS[TDS_LOG_PATH JSONL optional] --> V
@@ -40,7 +40,7 @@ sequenceDiagram
     participant V as TF-IDF correlator
     CLI->>E: create target + config
     E->>E: SecurityValidator.is_safe_target
-    E->>M: asyncio.gather(wait_for timeout)
+    E->>M: run modules with timeout
     M-->>E: results or module_fault
     loop each module result
       CLI->>DB: save_finding target module data
