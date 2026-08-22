@@ -88,17 +88,22 @@ class WebIntelligence(BaseModule):
                         break
                     location = r.headers.get("Location")
                     if not location:
+                        await r.aclose()
                         break
                     next_url = urljoin(current_url, location)
                     parsed = urlparse(next_url)
                     if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
+                        await r.aclose()
                         raise ValueError("redirect target is not an allowed HTTP(S) host")
                     if not await SecurityValidator.is_safe_target_async(parsed.hostname, self.config.timeout):
+                        await r.aclose()
                         raise ValueError("redirect target resolves to a restricted address")
+                    await r.aclose()
                     current_url = next_url
                 if r is None:
                     raise RuntimeError("web request did not produce a response")
                 if r.status_code in {301, 302, 303, 307, 308}:
+                    await r.aclose()
                     raise ValueError("redirect limit exceeded")
 
                 res['status_code'] = r.status_code
