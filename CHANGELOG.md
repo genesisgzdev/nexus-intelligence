@@ -22,6 +22,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+- SMTP connection, banner read and socket close now use the configured module timeout instead of a separate fixed five-second limit.
+- TLS SAN extraction only ignores the expected missing-extension case; certificate parsing errors still reach the module error result.
 - Evita bloquear el event loop durante la resolución DNS usada por web, TLS, SMTP y la validación inicial; los destinos siguen pasando por el mismo filtro SSRF y timeout.
 
 - Rechaza respuestas DNS privadas durante el descubrimiento de subdominios y documenta esa frontera junto con el resto del SSRF gating.

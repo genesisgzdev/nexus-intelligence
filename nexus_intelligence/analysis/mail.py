@@ -34,12 +34,13 @@ class MailIntelligence(BaseModule):
 
     async def grab_smtp_banner(self, host: str) -> str:
         writer = None
+        timeout = float(self.config.timeout)
         try:
             destination = (await SecurityValidator.resolve_public_addresses_async(host, self.config.timeout))[0]
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(destination, 25), timeout=5
+                asyncio.open_connection(destination, 25), timeout=timeout
             )
-            banner = await asyncio.wait_for(reader.read(1024), timeout=5)
+            banner = await asyncio.wait_for(reader.read(1024), timeout=timeout)
             return banner.decode().strip()
         except Exception as exc:
             self.logger.debug("SMTP banner lookup failed for %s: %s", host, exc)
@@ -48,7 +49,7 @@ class MailIntelligence(BaseModule):
             if writer is not None:
                 writer.close()
                 try:
-                    await asyncio.wait_for(writer.wait_closed(), timeout=5)
+                    await asyncio.wait_for(writer.wait_closed(), timeout=timeout)
                 except Exception:
                     self.logger.debug("SMTP writer close did not complete for %s", host)
 

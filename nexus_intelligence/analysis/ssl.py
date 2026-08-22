@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 from typing import Dict, Any, List
 from cryptography import x509
+from cryptography.x509.extensions import ExtensionNotFound
 from nexus_intelligence.analysis.base import BaseModule
 from nexus_intelligence.core.security import SecurityValidator
 
@@ -53,7 +54,8 @@ class SSLForensics(BaseModule):
             try:
                 ext = cert.extensions.get_extension_for_oid(x509.oid.ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
                 res['sans'] = ext.value.get_values_for_type(x509.DNSName)
-            except: pass
+            except ExtensionNotFound:
+                pass
 
         except Exception as e:
             self.logger.error(f"Local TLS analysis failed: {str(e)}")

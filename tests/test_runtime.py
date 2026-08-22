@@ -157,6 +157,7 @@ async def test_mail_dmarc_policy_queries_dmarc_subdomain(monkeypatch):
 async def test_mail_banner_closes_socket_when_read_fails(monkeypatch):
     module = MailIntelligence("example.test", StaticConfig(), LOGGER)
     closed = []
+    observed_timeouts = []
 
     async def resolve(_host, _timeout):
         return ["203.0.113.10"]
@@ -178,9 +179,17 @@ async def test_mail_banner_closes_socket_when_read_fails(monkeypatch):
         return Reader(), Writer()
 
     monkeypatch.setattr("nexus_intelligence.analysis.mail.asyncio.open_connection", open_connection)
+    original_wait_for = asyncio.wait_for
+
+    async def wait_for(awaitable, timeout):
+        observed_timeouts.append(timeout)
+        return await original_wait_for(awaitable, timeout)
+
+    monkeypatch.setattr("nexus_intelligence.analysis.mail.asyncio.wait_for", wait_for)
 
     assert await module.grab_smtp_banner("mx.example.test") == "Timeout/Refused"
     assert closed == ["close", "wait_closed"]
+    assert observed_timeouts == [1.0, 1.0, 1.0]
 
 
 @pytest.mark.asyncio
