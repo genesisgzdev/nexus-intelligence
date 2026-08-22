@@ -59,10 +59,10 @@ nexus-intel example.com
 También puedes pasar objetivos desde un archivo y ajustar el número de workers:
 
 ```bash
-nexus-intel --file targets.txt --concurrency 8
+nexus-intel --file targets.txt --concurrency 8 --correlate
 ```
 
-El modo bulk ejecuta los cinco módulos por objetivo, guarda cada hallazgo en SQLite y genera un informe por objetivo. La correlación con el histórico y con TDS se ejecuta en el flujo de objetivo único, no al terminar un archivo completo. SQLite usa WAL y una cola de escritura por proceso para evitar que los workers compitan por el mismo commit. Usa `nexus-intel --help` para ver las opciones disponibles.
+El modo bulk ejecuta los cinco módulos por objetivo, guarda cada hallazgo en SQLite y genera un informe por objetivo. `--correlate` añade un resumen global con similitudes TF-IDF entre objetivos distintos; no convierte esas similitudes en una reputación ni en una clasificación automática. SQLite usa WAL y una cola de escritura por proceso para evitar que los workers compitan por el mismo commit. Usa `nexus-intel --help` para ver las opciones disponibles.
 
 ## Datos y resultados
 

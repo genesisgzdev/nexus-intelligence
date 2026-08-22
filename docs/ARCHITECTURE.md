@@ -75,7 +75,7 @@ sequenceDiagram
     CLI-->>CLI: finish after queue.join
 ~~~
 
-El bulk ejecuta y persiste cada objetivo, pero no ejecuta la correlación histórica/TDS al finalizar todo el archivo. `--concurrency` se limita a `NEXUS_MAX_CONCURRENT`; los fallos de un módulo quedan como `module_fault` y no cancelan los otros módulos.
+El bulk ejecuta y persiste cada objetivo. Con `--correlate`, después de que termina la cola, el proceso reconstruye el índice desde SQLite y genera un resumen de pares similares entre objetivos distintos; sin esa opción solo produce los informes individuales. `--concurrency` se limita a `NEXUS_MAX_CONCURRENT`; los fallos de un módulo quedan como `module_fault` y no cancelan los otros módulos.
 
 Los módulos HTTP usan redirects manuales con un máximo de cinco saltos. Cada destino debe ser HTTP(S), no puede incluir credenciales y vuelve a pasar por `SecurityValidator`. La solicitud se construye con la IP pública validada y un encabezado `Host` con el nombre original para evitar que `curl_cffi` vuelva a resolver el hostname. TLS conecta contra la IP validada con el hostname original como SNI; SMTP aplica el mismo límite a cada MX.
 
@@ -86,3 +86,4 @@ Los módulos HTTP usan redirects manuales con un máximo de cinco saltos. Cada d
 - La base activa `journal_mode=WAL`, usa `busy_timeout` y serializa las escrituras dentro de cada `PersistenceManager`.
 - DNS, TLS, HTTP, SMTP y subdominios dependen de respuestas de red en ese momento. Una ausencia o timeout es una observación incompleta, no una conclusión de seguridad.
 - `tests/test_runtime.py` cubre mail SPF/DMARC, wildcard, persistencia, correlación, JSONL malformado, integridad TF-IDF y el target correcto en bulk.
+- Un corpus sin vocabulario útil no aborta la ingesta: el correlador conserva `index_error` y devuelve resultados vacíos hasta que haya señales comparables.

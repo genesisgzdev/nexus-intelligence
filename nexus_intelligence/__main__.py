@@ -56,6 +56,7 @@ async def entrypoint():
     cli_parser.add_argument("target", nargs="?", help="Target domain or IP")
     cli_parser.add_argument("--file", help="Source file for bulk target ingestion")
     cli_parser.add_argument("--concurrency", type=int, default=5, help="Async worker pool size for --file (1-100)")
+    cli_parser.add_argument("--correlate", action="store_true", help="Write a cross-target TF-IDF correlation summary after --file")
     cmd_args = cli_parser.parse_args()
 
     runtime_logger = setup_logger(config.verbose)
@@ -76,6 +77,22 @@ async def entrypoint():
         runtime_orchestrator = IntelligenceOrchestrator(orch_engine, report_gen, runtime_logger, persistence)
         await runtime_orchestrator.add_targets(target_list)
         await runtime_orchestrator.run_parallel(concurrency)
+
+        if cmd_args.correlate:
+            correlator = VectorCorrelator()
+            edr_log_stream = os.environ.get("TDS_LOG_PATH", "logs/tds_threats.jsonl")
+            if os.path.exists(edr_log_stream):
+                correlator.ingest_edr_logs(edr_log_stream)
+            findings = await persistence.get_all_findings()
+            correlator.ingest_nexus_results(findings)
+            matches = correlator.find_related_pairs()
+            summary = {
+                "target_count": len(set(target_list)),
+                "finding_count": len(findings),
+                "matches": matches,
+            }
+            artifact = report_gen.generate_batch_summary(summary)
+            runtime_logger.info("Bulk correlation artifact generated: %s", artifact)
         
     elif cmd_args.target:
         core_engine = IntelligenceEngine(cmd_args.target, config, runtime_logger)
