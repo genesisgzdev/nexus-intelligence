@@ -1,5 +1,6 @@
 import json
 import logging
+import socket
 
 import pytest
 
@@ -9,9 +10,27 @@ from nexus_intelligence.analysis.mail import MailIntelligence
 from nexus_intelligence.analysis.subdomains import SubdomainDiscovery
 from nexus_intelligence.core.persistence import PersistenceManager
 from nexus_intelligence.core.orchestrator import IntelligenceOrchestrator
+from nexus_intelligence.core.security import SecurityValidator
 
 
 LOGGER = logging.getLogger("nexus-tests")
+
+
+def test_security_validator_rejects_any_private_dns_answer(monkeypatch):
+    answers = [
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("8.8.8.8", 0)),
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.168.1.10", 0)),
+    ]
+    monkeypatch.setattr(socket, "getaddrinfo", lambda *args, **kwargs: answers)
+
+    assert SecurityValidator.is_safe_target("mixed.example") is False
+
+
+def test_security_validator_accepts_public_dns_answers(monkeypatch):
+    answers = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("8.8.8.8", 0))]
+    monkeypatch.setattr(socket, "getaddrinfo", lambda *args, **kwargs: answers)
+
+    assert SecurityValidator.is_safe_target("public.example") is True
 
 
 class StaticConfig:

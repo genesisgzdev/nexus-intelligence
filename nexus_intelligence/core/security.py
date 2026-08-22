@@ -19,9 +19,23 @@ class SecurityValidator:
     @staticmethod
     def is_safe_target(target: str) -> bool:
         try:
-            ip_addr = socket.gethostbyname(target)
-            ip = ipaddress.ip_address(ip_addr)
-            for subnet in SecurityValidator.PRIVATE_SUBNETS:
-                if ip in subnet: return False
+            addresses = {
+                ipaddress.ip_address(info[4][0])
+                for info in socket.getaddrinfo(target, None, type=socket.SOCK_STREAM)
+            }
+            if not addresses:
+                return False
+            for ip in addresses:
+                if (
+                    any(ip in subnet for subnet in SecurityValidator.PRIVATE_SUBNETS)
+                    or ip.is_private
+                    or ip.is_loopback
+                    or ip.is_link_local
+                    or ip.is_multicast
+                    or ip.is_reserved
+                    or ip.is_unspecified
+                ):
+                    return False
             return True
-        except: return False
+        except (OSError, ValueError):
+            return False
