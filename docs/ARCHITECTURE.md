@@ -8,7 +8,7 @@ La primera figura muestra los componentes conectados. Las dos secuencias separan
 
 ## 1. Componentes reales
 
-~~~mermaid
+```mermaid
 flowchart LR
     CMD[nexus-intel] --> ARG[argparse]
     ARG -->|target| ONE[execute_forensic_pipeline]
@@ -24,13 +24,13 @@ flowchart LR
     DB --> V[VectorCorrelator scikit-learn TF-IDF]
     TDS[TDS_LOG_PATH JSONL optional] --> V
     V --> AUD[VectorIntegrityAuditor]
-~~~
+```
 
 El runtime no declara Redis, MongoDB ni Milvus. La persistencia activa es SQLite y la correlación activa es TF-IDF local.
 
 ## 2. Objetivo único
 
-~~~mermaid
+```mermaid
 sequenceDiagram
     participant CLI as entrypoint
     participant E as IntelligenceEngine target
@@ -51,11 +51,11 @@ sequenceDiagram
     CLI->>V: ingest Nexus rows
     V->>V: cosine similarity for target
     V->>V: integrity audit
-~~~
+```
 
 ## 3. Archivo bulk
 
-~~~mermaid
+```mermaid
 sequenceDiagram
     participant CLI as --file
     participant Q as asyncio Queue
@@ -73,7 +73,7 @@ sequenceDiagram
       W->>R: report for that target
     end
     CLI-->>CLI: finish after queue.join
-~~~
+```
 
 El bulk ejecuta y persiste cada objetivo. Con `--correlate`, después de que termina la cola, el proceso reconstruye el índice desde SQLite y genera un resumen de pares similares entre objetivos distintos; sin esa opción solo produce los informes individuales. `--concurrency` se limita a `NEXUS_MAX_CONCURRENT`; los fallos de un módulo quedan como `module_fault` y no cancelan los otros módulos.
 
