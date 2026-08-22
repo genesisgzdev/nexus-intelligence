@@ -24,7 +24,7 @@ class SSLForensics(BaseModule):
 
             # Pin the socket destination to the address that passed the SSRF
             # policy. Keep the hostname as SNI for the requested virtual host.
-            destination = SecurityValidator.resolve_public_addresses(self.target)[0]
+            destination = (await SecurityValidator.resolve_public_addresses_async(self.target, self.config.timeout))[0]
             _reader, writer = await asyncio.open_connection(
                 destination, 443, ssl=ctx, server_hostname=self.target
             )

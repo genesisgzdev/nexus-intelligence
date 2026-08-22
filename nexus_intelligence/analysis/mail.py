@@ -35,7 +35,7 @@ class MailIntelligence(BaseModule):
     async def grab_smtp_banner(self, host: str) -> str:
         writer = None
         try:
-            destination = SecurityValidator.resolve_public_addresses(host)[0]
+            destination = (await SecurityValidator.resolve_public_addresses_async(host, self.config.timeout))[0]
             reader, writer = await asyncio.wait_for(
                 asyncio.open_connection(destination, 25), timeout=5
             )

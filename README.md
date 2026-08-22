@@ -21,7 +21,7 @@ SQLite + hallazgos JSON
 TF-IDF local -> similitud coseno -> informe Markdown
 ```
 
-La vista corta separa observación, persistencia y análisis. El diagrama completo de workers, timeouts, errores, bulk y auditoría está en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+La vista corta separa observación, persistencia y análisis. El diagrama completo de workers, timeouts, errores, bulk y auditoría está en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Las resoluciones de destino que ocurren dentro de módulos async usan el resolver del event loop y quedan acotadas por el timeout del módulo.
 
 Los módulos actuales cubren:
 

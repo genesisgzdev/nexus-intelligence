@@ -26,7 +26,7 @@ class IntelligenceEngine:
         Returns:
             Dictionary containing aggregated results indexed by module name.
         """
-        if not SecurityValidator.is_safe_target(self.target):
+        if not await SecurityValidator.is_safe_target_async(self.target, self.config.timeout):
             self.logger.error(f"Security Policy Violation: Target {self.target} resides in restricted address space.")
             return {"error": "security_violation", "detail": "Restricted_Target_Range"}
 

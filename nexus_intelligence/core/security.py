@@ -1,3 +1,4 @@
+import asyncio
 import socket
 import ipaddress
 from typing import Iterable, List
@@ -43,6 +44,23 @@ class SecurityValidator:
             for info in socket.getaddrinfo(target, None, type=socket.SOCK_STREAM)
         ]
         return SecurityValidator.validate_public_addresses(addresses)
+
+    @staticmethod
+    async def resolve_public_addresses_async(target: str, timeout: float) -> List[str]:
+        loop = asyncio.get_running_loop()
+        infos = await asyncio.wait_for(
+            loop.getaddrinfo(target, None, type=socket.SOCK_STREAM),
+            timeout=timeout,
+        )
+        return SecurityValidator.validate_public_addresses(info[4][0] for info in infos)
+
+    @staticmethod
+    async def is_safe_target_async(target: str, timeout: float) -> bool:
+        try:
+            await SecurityValidator.resolve_public_addresses_async(target, timeout)
+            return True
+        except (OSError, ValueError, TimeoutError):
+            return False
 
     @staticmethod
     def is_safe_target(target: str) -> bool:

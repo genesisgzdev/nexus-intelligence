@@ -39,6 +39,21 @@ def pinned_http_request(url: str) -> tuple[str, str]:
     pinned_netloc = destination if parsed.port is None else f"{destination}:{parsed.port}"
     return urlunsplit((parsed.scheme, pinned_netloc, parsed.path or "/", parsed.query, "")), host_header
 
+
+async def pinned_http_request_async(url: str, timeout: float) -> tuple[str, str]:
+    """Build a request URL without blocking the event loop on DNS."""
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise ValueError("request target is not an allowed HTTP(S) URL")
+    destination = (await SecurityValidator.resolve_public_addresses_async(parsed.hostname, timeout))[0]
+    host_header = parsed.hostname
+    if parsed.port is not None and parsed.port not in {80, 443}:
+        host_header = f"{host_header}:{parsed.port}"
+    if ":" in destination and not destination.startswith("["):
+        destination = f"[{destination}]"
+    pinned_netloc = destination if parsed.port is None else f"{destination}:{parsed.port}"
+    return urlunsplit((parsed.scheme, pinned_netloc, parsed.path or "/", parsed.query, "")), host_header
+
 class WebIntelligence(BaseModule):
     """
     Advanced Web Intelligence Engine.
@@ -58,7 +73,7 @@ class WebIntelligence(BaseModule):
                 current_url = f"https://{self.target}"
                 r = None
                 for _ in range(5):
-                    pinned_url, host_header = pinned_http_request(current_url)
+                    pinned_url, host_header = await pinned_http_request_async(current_url, self.config.timeout)
                     r = await s.get(
                         pinned_url,
                         headers={"Host": host_header},
@@ -75,7 +90,7 @@ class WebIntelligence(BaseModule):
                     parsed = urlparse(next_url)
                     if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
                         raise ValueError("redirect target is not an allowed HTTP(S) host")
-                    if not SecurityValidator.is_safe_target(parsed.hostname):
+                    if not await SecurityValidator.is_safe_target_async(parsed.hostname, self.config.timeout):
                         raise ValueError("redirect target resolves to a restricted address")
                     current_url = next_url
                 if r is None:

@@ -11,7 +11,7 @@ from nexus_intelligence.analysis.intelligence.integrity import VectorIntegrityAu
 from nexus_intelligence.analysis.mail import MailIntelligence
 from nexus_intelligence.analysis.ssl import SSLForensics
 from nexus_intelligence.analysis.subdomains import SubdomainDiscovery
-from nexus_intelligence.analysis.web import pinned_http_request
+from nexus_intelligence.analysis.web import pinned_http_request, pinned_http_request_async
 from nexus_intelligence.core.persistence import PersistenceManager
 from nexus_intelligence.core.orchestrator import IntelligenceOrchestrator
 from nexus_intelligence.core.security import SecurityValidator
@@ -58,6 +58,18 @@ def test_http_transport_pins_validated_ip_and_preserves_host(monkeypatch):
     assert url == "https://203.0.113.8/path?q=1"
     assert host == "public.example"
     assert observed == ["public.example"]
+
+
+@pytest.mark.asyncio
+async def test_async_http_transport_uses_bounded_async_resolution(monkeypatch):
+    async def resolve(_host, _timeout):
+        return ["203.0.113.8"]
+
+    monkeypatch.setattr(SecurityValidator, "resolve_public_addresses_async", resolve)
+    url, host = await pinned_http_request_async("https://public.example/path", timeout=1)
+
+    assert url == "https://203.0.113.8/path"
+    assert host == "public.example"
 
 
 def test_reporting_uses_private_safe_filename_and_escapes_markup(tmp_path):
@@ -146,7 +158,10 @@ async def test_mail_banner_closes_socket_when_read_fails(monkeypatch):
     module = MailIntelligence("example.test", StaticConfig(), LOGGER)
     closed = []
 
-    monkeypatch.setattr(SecurityValidator, "resolve_public_addresses", lambda _host: ["203.0.113.10"])
+    async def resolve(_host, _timeout):
+        return ["203.0.113.10"]
+
+    monkeypatch.setattr(SecurityValidator, "resolve_public_addresses_async", resolve)
 
     class Reader:
         async def read(self, _size):
@@ -173,7 +188,10 @@ async def test_tls_forensics_closes_socket_when_certificate_read_fails(monkeypat
     module = SSLForensics("example.test", StaticConfig(), LOGGER)
     closed = []
 
-    monkeypatch.setattr(SecurityValidator, "resolve_public_addresses", lambda _host: ["203.0.113.10"])
+    async def resolve(_host, _timeout):
+        return ["203.0.113.10"]
+
+    monkeypatch.setattr(SecurityValidator, "resolve_public_addresses_async", resolve)
 
     class SSLObject:
         def getpeercert(self, _binary_form):

@@ -82,6 +82,7 @@ Los módulos HTTP usan redirects manuales con un máximo de cinco saltos. Cada d
 ## 4. Datos y evidencia
 
 - SQLite almacena `target`, `module`, JSON serializado y timestamp mediante queries parametrizadas.
+- Web, TLS, SMTP y la validación inicial ejecutan la resolución de destino de forma async con timeout; no llaman a `socket.getaddrinfo()` síncrono desde el event loop.
 - Los reportes escapan encabezados y JSON observados, usan nombres de archivo acotados por slug y hash y se escriben con permisos `0600`.
 - La base activa `journal_mode=WAL`, usa `busy_timeout` y serializa las escrituras dentro de cada `PersistenceManager`.
 - DNS, TLS, HTTP, SMTP y subdominios dependen de respuestas de red en ese momento. Una ausencia o timeout es una observación incompleta, no una conclusión de seguridad.
