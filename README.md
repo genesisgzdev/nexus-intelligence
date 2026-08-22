@@ -34,6 +34,8 @@ Los módulos actuales cubren:
 
 La validación de objetivos comprueba todas las respuestas DNS y bloquea rangos privados, loopback, link-local, multicast, reservados y no especificados. El módulo web no sigue redirects a ciegas: cada salto HTTP(S) vuelve a validarse y hay un máximo de cinco.
 
+La conexión TLS vuelve a resolver el host y abre el socket contra la IP pública validada, manteniendo el hostname como SNI. Los banners SMTP aplican la misma validación a cada servidor MX. Esto reduce la ventana de DNS rebinding en los módulos de socket; el cliente HTTP sigue dependiendo de las capacidades de resolución de `curl_cffi` y vuelve a validar cada salto.
+
 La correlación es una matriz TF-IDF reproducible. No depende de FAISS, de embeddings remotos ni de una API de inteligencia externa.
 
 ## Instalación

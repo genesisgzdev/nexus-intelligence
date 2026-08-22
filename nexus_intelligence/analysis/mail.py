@@ -2,6 +2,7 @@ import asyncio
 import dns.asyncresolver
 from typing import Dict, Any, List
 from nexus_intelligence.analysis.base import BaseModule
+from nexus_intelligence.core.security import SecurityValidator
 
 class MailIntelligence(BaseModule):
     """
@@ -33,8 +34,9 @@ class MailIntelligence(BaseModule):
 
     async def grab_smtp_banner(self, host: str) -> str:
         try:
+            destination = SecurityValidator.resolve_public_addresses(host)[0]
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(host, 25), timeout=5
+                asyncio.open_connection(destination, 25), timeout=5
             )
             banner = await reader.read(1024)
             writer.close()

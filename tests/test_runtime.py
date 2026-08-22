@@ -48,6 +48,7 @@ def test_reporting_uses_private_safe_filename_and_escapes_markup(tmp_path):
 class StaticConfig:
     timeout = 1
     dns_resolvers = ["127.0.0.1"]
+    max_concurrent = 3
 
 
 @pytest.mark.asyncio
@@ -108,6 +109,28 @@ async def test_subdomain_wildcard_probe_uses_imported_uuid(monkeypatch):
 
     assert await module._is_wildcard() is False
     assert observed and observed[0][0].startswith("nexus-wildcard-check-")
+
+
+@pytest.mark.asyncio
+async def test_subdomain_resolver_uses_configured_concurrency_cap(monkeypatch):
+    module = SubdomainDiscovery("example.test", StaticConfig(), LOGGER)
+    observed = []
+
+    async def resolve(_self, name, record_type):
+        observed.append(name)
+        return ["203.0.113.10"]
+
+    async def no_wildcard():
+        return False
+
+    monkeypatch.setattr(module, "_is_wildcard", no_wildcard)
+    monkeypatch.setattr("nexus_intelligence.analysis.subdomains.dns.asyncresolver.Resolver", lambda: type(
+        "Resolver", (), {"resolve": resolve}
+    )())
+
+    result = await module.run()
+    assert result["found_count"] == len(module.BASE_WORDS)
+    assert observed
 
 
 @pytest.mark.asyncio

@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - Valida cada salto de redirect HTTP(S) y limita la cadena a cinco destinos.
+- Fija las conexiones TLS y SMTP a una IP pública validada antes de abrir el socket y limita la concurrencia de subdominios a `NEXUS_MAX_CONCURRENT`.
 - Usa SQLite WAL, timeout de espera y una única cola de escritura por proceso.
 - Escapa observaciones en los informes y restringe sus archivos a permisos `0600`.
 - Retira settings de Redis, MongoDB y Milvus que no pertenecían al runtime.
