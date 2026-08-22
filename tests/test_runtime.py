@@ -12,6 +12,7 @@ from nexus_intelligence.analysis.mail import MailIntelligence
 from nexus_intelligence.analysis.ssl import SSLForensics
 from nexus_intelligence.analysis.subdomains import SubdomainDiscovery
 from nexus_intelligence.analysis.web import pinned_http_request, pinned_http_request_async
+from nexus_intelligence.analysis.web import WebIntelligence
 from nexus_intelligence.core.persistence import PersistenceManager
 from nexus_intelligence.core.orchestrator import IntelligenceOrchestrator
 from nexus_intelligence.core.security import SecurityValidator
@@ -107,6 +108,42 @@ class StaticConfig:
     timeout = 1
     dns_resolvers = ["127.0.0.1"]
     max_concurrent = 3
+
+
+@pytest.mark.asyncio
+async def test_web_runtime_truncates_oversized_stream(monkeypatch):
+    module = WebIntelligence("example.test", StaticConfig(), LOGGER)
+
+    class Response:
+        status_code = 200
+        headers = {}
+
+        async def aiter_content(self, _chunk_size):
+            yield b"x" * (3 * 1024 * 1024)
+
+        async def aclose(self):
+            return None
+
+    class Session:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def get(self, *_args, **_kwargs):
+            return Response()
+
+    async def pinned(_url, _timeout):
+        return "http://127.0.0.1/", "example.test"
+
+    monkeypatch.setattr("nexus_intelligence.analysis.web.AsyncSession", lambda **_kwargs: Session())
+    monkeypatch.setattr("nexus_intelligence.analysis.web.pinned_http_request_async", pinned)
+
+    result = await module.run()
+
+    assert result["body_truncated"] is True
+    assert result["body_bytes"] == 2 * 1024 * 1024
 
 
 @pytest.mark.asyncio

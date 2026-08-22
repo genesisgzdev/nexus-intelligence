@@ -24,6 +24,8 @@ SIGNATURES = {
     }
 }
 
+MAX_RESPONSE_BYTES = 2 * 1024 * 1024
+
 
 def pinned_http_request(url: str) -> tuple[str, str]:
     """Build a request URL pinned to an address accepted by the SSRF gate."""
@@ -80,6 +82,7 @@ class WebIntelligence(BaseModule):
                         timeout=self.config.timeout,
                         verify=False,
                         allow_redirects=False,
+                        stream=True,
                     )
                     if r.status_code not in {301, 302, 303, 307, 308}:
                         break
@@ -99,9 +102,33 @@ class WebIntelligence(BaseModule):
                     raise ValueError("redirect limit exceeded")
 
                 res['status_code'] = r.status_code
+
+                content_length = r.headers.get("Content-Length")
+                if content_length and content_length.isdigit() and int(content_length) > MAX_RESPONSE_BYTES:
+                    await r.aclose()
+                    res["body_truncated"] = True
+                    res["body_bytes"] = 0
+                    return res
+
+                chunks: list[bytes] = []
+                total = 0
+                truncated = False
+                async for chunk in r.aiter_content(64 * 1024):
+                    remaining = MAX_RESPONSE_BYTES - total
+                    if remaining <= 0:
+                        truncated = True
+                        break
+                    chunks.append(chunk[:remaining])
+                    total += min(len(chunk), remaining)
+                    if len(chunk) > remaining:
+                        truncated = True
+                        break
+                await r.aclose()
+                body_content = b"".join(chunks).decode("utf-8", errors="replace")
+                res["body_truncated"] = truncated
+                res["body_bytes"] = total
                 
                 # 1. Signature-based fingerprinting
-                body_content = r.text
                 headers_str = str(r.headers)
                 for category, sigs in SIGNATURES.items():
                     for name, patterns in sigs.items():
@@ -129,7 +156,7 @@ class WebIntelligence(BaseModule):
                     if val:
                         res['security_headers'][f"Information_Leak_{h}"] = val
 
-                soup = BeautifulSoup(r.text, "lxml")
+                soup = BeautifulSoup(body_content, "lxml")
                 if soup.title:
                     res['title'] = soup.title.get_text().strip()
 
