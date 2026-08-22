@@ -25,13 +25,17 @@ class SSLForensics(BaseModule):
             # Pin the socket destination to the address that passed the SSRF
             # policy. Keep the hostname as SNI for the requested virtual host.
             destination = SecurityValidator.resolve_public_addresses(self.target)[0]
-            reader, writer = await asyncio.open_connection(
+            _reader, writer = await asyncio.open_connection(
                 destination, 443, ssl=ctx, server_hostname=self.target
             )
-            ssl_obj = writer.get_extra_info('ssl_object')
-            der_cert = ssl_obj.getpeercert(True)
-            writer.close()
-            await writer.wait_closed()
+            try:
+                ssl_obj = writer.get_extra_info('ssl_object')
+                if ssl_obj is None:
+                    raise RuntimeError("TLS connection did not expose an SSL object")
+                der_cert = ssl_obj.getpeercert(True)
+            finally:
+                writer.close()
+                await writer.wait_closed()
 
             # Local X.509 Parsing (cryptography library)
             cert = x509.load_der_x509_certificate(der_cert)

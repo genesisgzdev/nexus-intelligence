@@ -8,6 +8,7 @@ import pytest
 from nexus_intelligence.analysis.intelligence.correlation import VectorCorrelator
 from nexus_intelligence.analysis.intelligence.integrity import VectorIntegrityAuditor
 from nexus_intelligence.analysis.mail import MailIntelligence
+from nexus_intelligence.analysis.ssl import SSLForensics
 from nexus_intelligence.analysis.subdomains import SubdomainDiscovery
 from nexus_intelligence.analysis.web import pinned_http_request
 from nexus_intelligence.core.persistence import PersistenceManager
@@ -163,6 +164,39 @@ async def test_mail_banner_closes_socket_when_read_fails(monkeypatch):
     monkeypatch.setattr("nexus_intelligence.analysis.mail.asyncio.open_connection", open_connection)
 
     assert await module.grab_smtp_banner("mx.example.test") == "Timeout/Refused"
+    assert closed == ["close", "wait_closed"]
+
+
+@pytest.mark.asyncio
+async def test_tls_forensics_closes_socket_when_certificate_read_fails(monkeypatch):
+    module = SSLForensics("example.test", StaticConfig(), LOGGER)
+    closed = []
+
+    monkeypatch.setattr(SecurityValidator, "resolve_public_addresses", lambda _host: ["203.0.113.10"])
+
+    class SSLObject:
+        def getpeercert(self, _binary_form):
+            raise RuntimeError("certificate read failed")
+
+    class Writer:
+        def get_extra_info(self, name):
+            assert name == "ssl_object"
+            return SSLObject()
+
+        def close(self):
+            closed.append("close")
+
+        async def wait_closed(self):
+            closed.append("wait_closed")
+
+    async def open_connection(_host, _port, **_kwargs):
+        return object(), Writer()
+
+    monkeypatch.setattr("nexus_intelligence.analysis.ssl.asyncio.open_connection", open_connection)
+
+    result = await module.run()
+
+    assert "error" in result
     assert closed == ["close", "wait_closed"]
 
 
