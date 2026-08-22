@@ -29,6 +29,13 @@ def test_security_validator_rejects_any_private_dns_answer(monkeypatch):
     assert SecurityValidator.is_safe_target("mixed.example") is False
 
 
+def test_security_validator_rejects_non_global_shared_address(monkeypatch):
+    answers = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("100.64.0.1", 0))]
+    monkeypatch.setattr(socket, "getaddrinfo", lambda *args, **kwargs: answers)
+
+    assert SecurityValidator.is_safe_target("carrier-nat.example") is False
+
+
 def test_security_validator_accepts_public_dns_answers(monkeypatch):
     answers = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("8.8.8.8", 0))]
     monkeypatch.setattr(socket, "getaddrinfo", lambda *args, **kwargs: answers)
