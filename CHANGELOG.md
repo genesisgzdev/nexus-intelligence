@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [3.3.2] - 2026-08-22
 
 ### Fixed
 
@@ -13,6 +13,14 @@ All notable changes to this project will be documented in this file.
 - Retira settings de Redis, MongoDB y Milvus que no pertenecían al runtime.
 - Añade `--correlate` para resumir similitudes TF-IDF entre objetivos distintos después de un bulk.
 - Conserva una ingesta sin vocabulario útil como resultado incompleto en vez de abortar el escaneo.
+- Rechaza rangos no globales como CGNAT antes de abrir conexiones de red.
+
+### Riesgo y actualización
+
+- No cambia la configuración ni el esquema de SQLite.
+- Los objetivos que resuelvan a direcciones no globales dejan de ser aceptados.
+
+## [Unreleased]
 
 ## [3.3.1] - 2026-08-20
 
