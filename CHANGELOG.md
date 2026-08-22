@@ -23,6 +23,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 - El CLI rechaza combinaciones ambiguas entre objetivo único, `--file` y `--correlate`, devuelve código 2 cuando el archivo bulk no es accesible y propaga el resultado de `main()` al proceso.
+- El help y la documentación de `--concurrency` reflejan el límite configurable real de `NEXUS_MAX_CONCURRENT`.
 - SMTP connection, banner read and socket close now use the configured module timeout instead of a separate fixed five-second limit.
 - TLS SAN extraction only ignores the expected missing-extension case; certificate parsing errors still reach the module error result.
 - Evita bloquear el event loop durante la resolución DNS usada por web, TLS, SMTP y la validación inicial; los destinos siguen pasando por el mismo filtro SSRF y timeout.

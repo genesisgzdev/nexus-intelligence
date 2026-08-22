@@ -64,7 +64,7 @@ nexus-intel --file targets.txt --concurrency 8 --correlate
 
 El modo bulk ejecuta los cinco módulos por objetivo, guarda cada hallazgo en SQLite y genera un informe por objetivo. `--correlate` añade un resumen global con similitudes TF-IDF entre objetivos distintos; no convierte esas similitudes en una reputación ni en una clasificación automática. SQLite usa WAL y una cola de escritura por proceso para evitar que los workers compitan por el mismo commit. Usa `nexus-intel --help` para ver las opciones disponibles.
 
-`target` y `--file` son rutas mutuamente excluyentes. `--correlate` solo es válido con `--file`; una combinación inválida o un archivo inaccesible termina con código 2.
+`target` y `--file` son rutas mutuamente excluyentes. `--correlate` solo es válido con `--file`; una combinación inválida o un archivo inaccesible termina con código 2. `--concurrency` se limita al valor efectivo de `NEXUS_MAX_CONCURRENT`.
 
 ## Datos y resultados
 

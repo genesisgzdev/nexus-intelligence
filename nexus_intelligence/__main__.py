@@ -52,7 +52,7 @@ def _build_parser() -> argparse.ArgumentParser:
     cli_parser = argparse.ArgumentParser(description="Nexus Intelligence: Asynchronous OSINT Runtime")
     cli_parser.add_argument("target", nargs="?", help="Target domain or IP")
     cli_parser.add_argument("--file", help="Source file for bulk target ingestion")
-    cli_parser.add_argument("--concurrency", type=int, default=5, help="Async worker pool size for --file (1-100)")
+    cli_parser.add_argument("--concurrency", type=int, default=5, help="Async worker pool size for --file (1-NEXUS_MAX_CONCURRENT)")
     cli_parser.add_argument("--correlate", action="store_true", help="Write a cross-target TF-IDF correlation summary after --file")
     return cli_parser
 
