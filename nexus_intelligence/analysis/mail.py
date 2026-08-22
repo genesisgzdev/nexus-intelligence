@@ -9,9 +9,16 @@ class MailIntelligence(BaseModule):
     Forensic Mail Infrastructure Analysis.
     Inspects SPF, DMARC, and performs SMTP banner grabbing.
     """
+    def _resolver(self) -> dns.asyncresolver.Resolver:
+        resolver = dns.asyncresolver.Resolver()
+        resolver.nameservers = self.config.dns_resolvers
+        resolver.timeout = self.config.timeout
+        resolver.lifetime = self.config.timeout
+        return resolver
+
     async def get_mx_records(self) -> List[str]:
         try:
-            resolver = dns.asyncresolver.Resolver()
+            resolver = self._resolver()
             answers = await resolver.resolve(self.target, 'MX')
             return [str(r.exchange).rstrip('.') for r in answers]
         except Exception as exc:
@@ -20,7 +27,7 @@ class MailIntelligence(BaseModule):
 
     async def check_policy(self, rtype: str) -> str:
         try:
-            resolver = dns.asyncresolver.Resolver()
+            resolver = self._resolver()
             # Prefix for DMARC is _dmarc.
             target = f"_dmarc.{self.target}" if rtype.upper() == "DMARC" else self.target
             answers = await resolver.resolve(target, 'TXT')
@@ -33,18 +40,25 @@ class MailIntelligence(BaseModule):
             return "Lookup Failed"
 
     async def grab_smtp_banner(self, host: str) -> str:
+        writer = None
+        timeout = float(self.config.timeout)
         try:
-            destination = SecurityValidator.resolve_public_addresses(host)[0]
+            destination = (await SecurityValidator.resolve_public_addresses_async(host, self.config.timeout))[0]
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(destination, 25), timeout=5
+                asyncio.open_connection(destination, 25), timeout=timeout
             )
-            banner = await reader.read(1024)
-            writer.close()
-            await writer.wait_closed()
+            banner = await asyncio.wait_for(reader.read(1024), timeout=timeout)
             return banner.decode().strip()
         except Exception as exc:
             self.logger.debug("SMTP banner lookup failed for %s: %s", host, exc)
             return "Timeout/Refused"
+        finally:
+            if writer is not None:
+                writer.close()
+                try:
+                    await asyncio.wait_for(writer.wait_closed(), timeout=timeout)
+                except Exception:
+                    self.logger.debug("SMTP writer close did not complete for %s", host)
 
     async def run(self) -> Dict[str, Any]:
         self.logger.info(f"Analyzing mail infrastructure: {self.target}")

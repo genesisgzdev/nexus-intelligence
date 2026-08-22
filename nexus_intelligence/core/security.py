@@ -1,6 +1,7 @@
+import asyncio
 import socket
 import ipaddress
-from typing import List
+from typing import Iterable, List
 
 class SecurityValidator:
     """
@@ -18,14 +19,11 @@ class SecurityValidator:
     ]
 
     @staticmethod
-    def resolve_public_addresses(target: str) -> List[str]:
-        addresses = {
-            ipaddress.ip_address(info[4][0])
-            for info in socket.getaddrinfo(target, None, type=socket.SOCK_STREAM)
-        }
-        if not addresses:
+    def validate_public_addresses(addresses: Iterable[str]) -> List[str]:
+        parsed_addresses = {ipaddress.ip_address(address) for address in addresses}
+        if not parsed_addresses:
             raise ValueError("target has no address")
-        for ip in addresses:
+        for ip in parsed_addresses:
             if (
                 any(ip in subnet for subnet in SecurityValidator.PRIVATE_SUBNETS)
                 or ip.is_private
@@ -37,7 +35,32 @@ class SecurityValidator:
                 or not ip.is_global
             ):
                 raise ValueError("target resolves to a restricted address")
-        return sorted(str(ip) for ip in addresses)
+        return sorted(str(ip) for ip in parsed_addresses)
+
+    @staticmethod
+    def resolve_public_addresses(target: str) -> List[str]:
+        addresses = [
+            info[4][0]
+            for info in socket.getaddrinfo(target, None, type=socket.SOCK_STREAM)
+        ]
+        return SecurityValidator.validate_public_addresses(addresses)
+
+    @staticmethod
+    async def resolve_public_addresses_async(target: str, timeout: float) -> List[str]:
+        loop = asyncio.get_running_loop()
+        infos = await asyncio.wait_for(
+            loop.getaddrinfo(target, None, type=socket.SOCK_STREAM),
+            timeout=timeout,
+        )
+        return SecurityValidator.validate_public_addresses(info[4][0] for info in infos)
+
+    @staticmethod
+    async def is_safe_target_async(target: str, timeout: float) -> bool:
+        try:
+            await SecurityValidator.resolve_public_addresses_async(target, timeout)
+            return True
+        except (OSError, ValueError, TimeoutError):
+            return False
 
     @staticmethod
     def is_safe_target(target: str) -> bool:

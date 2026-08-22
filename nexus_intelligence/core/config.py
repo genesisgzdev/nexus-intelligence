@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import List
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 import os
@@ -16,12 +16,7 @@ class NexusSettings(BaseSettings):
     output_dir: str = Field(default="reports")
     verbose: bool = Field(default=False)
 
-    # Enterprise Persistence (Added)
-
     # Networking
-    proxy_url: Optional[str] = Field(default=None)
-    allow_external_ct: bool = Field(default=False)
-    doh_endpoint: str = Field(default="https://cloudflare-dns.com/dns-query")
     dns_resolvers: List[str] = Field(default_factory=lambda: ["1.1.1.1", "8.8.8.8"])
 
     def __init__(self, **kwargs):

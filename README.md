@@ -21,7 +21,7 @@ SQLite + hallazgos JSON
 TF-IDF local -> similitud coseno -> informe Markdown
 ```
 
-La vista corta separa observación, persistencia y análisis. El diagrama completo de workers, timeouts, errores, bulk y auditoría está en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+La vista corta separa observación, persistencia y análisis. El diagrama completo de workers, timeouts, errores, bulk y auditoría está en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Las resoluciones de destino que ocurren dentro de módulos async usan el resolver del event loop y quedan acotadas por el timeout del módulo.
 
 Los módulos actuales cubren:
 
@@ -32,11 +32,11 @@ Los módulos actuales cubren:
 - correlación local con TF-IDF y `scikit-learn`
 - ingesta opcional de eventos JSONL de [Threat Detection Suite](https://github.com/genesisgzdev/threat-detection-suite)
 
-La validación de objetivos comprueba todas las respuestas DNS y bloquea rangos privados, loopback, link-local, multicast, reservados y no especificados. El módulo web no sigue redirects a ciegas: cada salto HTTP(S) vuelve a validarse y hay un máximo de cinco.
+La validación de objetivos y de los subdominios descubiertos comprueba todas las respuestas DNS y bloquea rangos privados, loopback, link-local, multicast, reservados y no especificados. El módulo web no sigue redirects a ciegas: cada salto HTTP(S) vuelve a validarse y hay un máximo de cinco.
 
 La conexión TLS vuelve a resolver el host y abre el socket contra la IP pública validada, manteniendo el hostname como SNI. Los banners SMTP aplican la misma validación a cada servidor MX. HTTP también fija cada solicitud a una IP validada y conserva el `Host` original para el virtual host; cada redirect vuelve a pasar por la misma frontera.
 
-La correlación es una matriz TF-IDF reproducible. No depende de FAISS, de embeddings remotos ni de una API de inteligencia externa.
+La correlación es una matriz TF-IDF reproducible. No depende de FAISS, de embeddings remotos ni de una API de inteligencia externa. La configuración no ofrece proxy, DoH ni CT externo: las únicas consultas salen por los resolvers DNS configurados y por los módulos de observación autorizados. El módulo web lee como máximo 2 MiB por respuesta y marca el informe cuando el cuerpo queda truncado. La comparación bulk tiene un presupuesto de dos millones de pares y marca el índice como incompleto si lo alcanza.
 
 ## Instalación
 
@@ -63,6 +63,8 @@ nexus-intel --file targets.txt --concurrency 8 --correlate
 ```
 
 El modo bulk ejecuta los cinco módulos por objetivo, guarda cada hallazgo en SQLite y genera un informe por objetivo. `--correlate` añade un resumen global con similitudes TF-IDF entre objetivos distintos; no convierte esas similitudes en una reputación ni en una clasificación automática. SQLite usa WAL y una cola de escritura por proceso para evitar que los workers compitan por el mismo commit. Usa `nexus-intel --help` para ver las opciones disponibles.
+
+`target` y `--file` son rutas mutuamente excluyentes. `--correlate` solo es válido con `--file`; una combinación inválida o un archivo inaccesible termina con código 2. `--concurrency` se limita al valor efectivo de `NEXUS_MAX_CONCURRENT`.
 
 ## Datos y resultados
 

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -8,8 +9,10 @@ import pytest
 from nexus_intelligence.analysis.intelligence.correlation import VectorCorrelator
 from nexus_intelligence.analysis.intelligence.integrity import VectorIntegrityAuditor
 from nexus_intelligence.analysis.mail import MailIntelligence
+from nexus_intelligence.analysis.ssl import SSLForensics
 from nexus_intelligence.analysis.subdomains import SubdomainDiscovery
-from nexus_intelligence.analysis.web import pinned_http_request
+from nexus_intelligence.analysis.web import pinned_http_request, pinned_http_request_async
+from nexus_intelligence.analysis.web import WebIntelligence
 from nexus_intelligence.core.persistence import PersistenceManager
 from nexus_intelligence.core.orchestrator import IntelligenceOrchestrator
 from nexus_intelligence.core.security import SecurityValidator
@@ -58,6 +61,18 @@ def test_http_transport_pins_validated_ip_and_preserves_host(monkeypatch):
     assert observed == ["public.example"]
 
 
+@pytest.mark.asyncio
+async def test_async_http_transport_uses_bounded_async_resolution(monkeypatch):
+    async def resolve(_host, _timeout):
+        return ["203.0.113.8"]
+
+    monkeypatch.setattr(SecurityValidator, "resolve_public_addresses_async", resolve)
+    url, host = await pinned_http_request_async("https://public.example/path", timeout=1)
+
+    assert url == "https://203.0.113.8/path"
+    assert host == "public.example"
+
+
 def test_reporting_uses_private_safe_filename_and_escapes_markup(tmp_path):
     path = ReportingEngine(str(tmp_path)).generate_markdown(
         "../../<script>alert(1)</script>",
@@ -93,6 +108,42 @@ class StaticConfig:
     timeout = 1
     dns_resolvers = ["127.0.0.1"]
     max_concurrent = 3
+
+
+@pytest.mark.asyncio
+async def test_web_runtime_truncates_oversized_stream(monkeypatch):
+    module = WebIntelligence("example.test", StaticConfig(), LOGGER)
+
+    class Response:
+        status_code = 200
+        headers = {}
+
+        async def aiter_content(self, _chunk_size):
+            yield b"x" * (3 * 1024 * 1024)
+
+        async def aclose(self):
+            return None
+
+    class Session:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def get(self, *_args, **_kwargs):
+            return Response()
+
+    async def pinned(_url, _timeout):
+        return "http://127.0.0.1/", "example.test"
+
+    monkeypatch.setattr("nexus_intelligence.analysis.web.AsyncSession", lambda **_kwargs: Session())
+    monkeypatch.setattr("nexus_intelligence.analysis.web.pinned_http_request_async", pinned)
+
+    result = await module.run()
+
+    assert result["body_truncated"] is True
+    assert result["body_bytes"] == 2 * 1024 * 1024
 
 
 @pytest.mark.asyncio
@@ -140,6 +191,81 @@ async def test_mail_dmarc_policy_queries_dmarc_subdomain(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_mail_banner_closes_socket_when_read_fails(monkeypatch):
+    module = MailIntelligence("example.test", StaticConfig(), LOGGER)
+    closed = []
+    observed_timeouts = []
+
+    async def resolve(_host, _timeout):
+        return ["203.0.113.10"]
+
+    monkeypatch.setattr(SecurityValidator, "resolve_public_addresses_async", resolve)
+
+    class Reader:
+        async def read(self, _size):
+            raise RuntimeError("banner read failed")
+
+    class Writer:
+        def close(self):
+            closed.append("close")
+
+        async def wait_closed(self):
+            closed.append("wait_closed")
+
+    async def open_connection(_host, _port):
+        return Reader(), Writer()
+
+    monkeypatch.setattr("nexus_intelligence.analysis.mail.asyncio.open_connection", open_connection)
+    original_wait_for = asyncio.wait_for
+
+    async def wait_for(awaitable, timeout):
+        observed_timeouts.append(timeout)
+        return await original_wait_for(awaitable, timeout)
+
+    monkeypatch.setattr("nexus_intelligence.analysis.mail.asyncio.wait_for", wait_for)
+
+    assert await module.grab_smtp_banner("mx.example.test") == "Timeout/Refused"
+    assert closed == ["close", "wait_closed"]
+    assert observed_timeouts == [1.0, 1.0, 1.0]
+
+
+@pytest.mark.asyncio
+async def test_tls_forensics_closes_socket_when_certificate_read_fails(monkeypatch):
+    module = SSLForensics("example.test", StaticConfig(), LOGGER)
+    closed = []
+
+    async def resolve(_host, _timeout):
+        return ["203.0.113.10"]
+
+    monkeypatch.setattr(SecurityValidator, "resolve_public_addresses_async", resolve)
+
+    class SSLObject:
+        def getpeercert(self, _binary_form):
+            raise RuntimeError("certificate read failed")
+
+    class Writer:
+        def get_extra_info(self, name):
+            assert name == "ssl_object"
+            return SSLObject()
+
+        def close(self):
+            closed.append("close")
+
+        async def wait_closed(self):
+            closed.append("wait_closed")
+
+    async def open_connection(_host, _port, **_kwargs):
+        return object(), Writer()
+
+    monkeypatch.setattr("nexus_intelligence.analysis.ssl.asyncio.open_connection", open_connection)
+
+    result = await module.run()
+
+    assert "error" in result
+    assert closed == ["close", "wait_closed"]
+
+
+@pytest.mark.asyncio
 async def test_subdomain_wildcard_probe_uses_imported_uuid(monkeypatch):
     module = SubdomainDiscovery("example.test", StaticConfig(), LOGGER)
     observed = []
@@ -156,13 +282,26 @@ async def test_subdomain_wildcard_probe_uses_imported_uuid(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_subdomain_discovery_rejects_private_answer(monkeypatch):
+    module = SubdomainDiscovery("example.test", StaticConfig(), LOGGER)
+
+    class Resolver:
+        async def resolve(self, _name, _record_type):
+            return [type("A", (), {"address": "127.0.0.1"})()]
+
+    monkeypatch.setattr("nexus_intelligence.analysis.subdomains.dns.asyncresolver.Resolver", Resolver)
+
+    assert await module._resolve("admin", asyncio.Semaphore(1)) == ""
+
+
+@pytest.mark.asyncio
 async def test_subdomain_resolver_uses_configured_concurrency_cap(monkeypatch):
     module = SubdomainDiscovery("example.test", StaticConfig(), LOGGER)
     observed = []
 
     async def resolve(_self, name, record_type):
         observed.append(name)
-        return ["203.0.113.10"]
+        return [type("A", (), {"address": "8.8.8.8"})()]
 
     async def no_wildcard():
         return False

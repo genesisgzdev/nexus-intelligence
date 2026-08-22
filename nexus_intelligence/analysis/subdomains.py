@@ -3,6 +3,7 @@ import dns.asyncresolver
 import uuid
 from typing import Dict, Any, List
 from nexus_intelligence.analysis.base import BaseModule
+from nexus_intelligence.core.security import SecurityValidator
 
 class SubdomainDiscovery(BaseModule):
     """
@@ -16,10 +17,17 @@ class SubdomainDiscovery(BaseModule):
         "nexus", "jira", "confluence", "prod", "beta", "monitor", "status"
     ]
 
+    def _resolver(self) -> dns.asyncresolver.Resolver:
+        resolver = dns.asyncresolver.Resolver()
+        resolver.nameservers = self.config.dns_resolvers
+        resolver.timeout = self.config.timeout
+        resolver.lifetime = self.config.timeout
+        return resolver
+
     async def _is_wildcard(self) -> bool:
         """Detects if the target has a wildcard DNS record."""
         try:
-            resolver = dns.asyncresolver.Resolver()
+            resolver = self._resolver()
             await resolver.resolve(f"nexus-wildcard-check-{uuid.uuid4().hex}.{self.target}", 'A')
             return True
         except Exception:
@@ -29,9 +37,9 @@ class SubdomainDiscovery(BaseModule):
         async with semaphore:
             full = f"{sub}.{self.target}"
             try:
-                resolver = dns.asyncresolver.Resolver()
-                # We query 'A' and 'CNAME' records concurrently
-                await resolver.resolve(full, 'A')
+                resolver = self._resolver()
+                answers = await resolver.resolve(full, 'A')
+                SecurityValidator.validate_public_addresses(record.address for record in answers)
                 return full
             except Exception:
                 return ""

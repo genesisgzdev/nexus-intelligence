@@ -48,26 +48,40 @@ async def execute_forensic_pipeline(target: str, engine: IntelligenceEngine, rep
     if not v_auditor.audit_index().get("is_healthy"):
         logger.warning("Vector index drift detected. Search precision may be compromised.")
 
-async def entrypoint():
-    """
-    Application entrypoint for CLI orchestration.
-    """
+def _build_parser() -> argparse.ArgumentParser:
     cli_parser = argparse.ArgumentParser(description="Nexus Intelligence: Asynchronous OSINT Runtime")
     cli_parser.add_argument("target", nargs="?", help="Target domain or IP")
     cli_parser.add_argument("--file", help="Source file for bulk target ingestion")
-    cli_parser.add_argument("--concurrency", type=int, default=5, help="Async worker pool size for --file (1-100)")
+    cli_parser.add_argument("--concurrency", type=int, default=5, help="Async worker pool size for --file (1-NEXUS_MAX_CONCURRENT)")
     cli_parser.add_argument("--correlate", action="store_true", help="Write a cross-target TF-IDF correlation summary after --file")
-    cmd_args = cli_parser.parse_args()
+    return cli_parser
 
-    runtime_logger = setup_logger(config.verbose)
-    persistence = PersistenceManager()
-    await persistence.initialize()
-    report_gen = ReportingEngine(config.output_dir)
+
+def _validate_args(cmd_args: argparse.Namespace, cli_parser: argparse.ArgumentParser) -> None:
+    if cmd_args.file and cmd_args.target:
+        cli_parser.error("target and --file are mutually exclusive")
+    if cmd_args.correlate and not cmd_args.file:
+        cli_parser.error("--correlate requires --file")
+
+
+async def entrypoint() -> int:
+    """
+    Application entrypoint for CLI orchestration.
+    """
+    cli_parser = _build_parser()
+    cmd_args = cli_parser.parse_args()
+    _validate_args(cmd_args, cli_parser)
+
+    runtime_logger = setup_logger(config.output_dir, verbose=config.verbose)
 
     if cmd_args.file:
         if not os.path.exists(cmd_args.file):
             runtime_logger.error(f"Configuration Fault: Target file '{cmd_args.file}' not accessible.")
-            return
+            return 2
+
+        persistence = PersistenceManager()
+        await persistence.initialize()
+        report_gen = ReportingEngine(config.output_dir)
         
         with open(cmd_args.file, "r") as f:
             target_list = [line.strip() for line in f if line.strip()]
@@ -93,18 +107,24 @@ async def entrypoint():
             }
             artifact = report_gen.generate_batch_summary(summary)
             runtime_logger.info("Bulk correlation artifact generated: %s", artifact)
+        return 0
         
     elif cmd_args.target:
+        persistence = PersistenceManager()
+        await persistence.initialize()
+        report_gen = ReportingEngine(config.output_dir)
         core_engine = IntelligenceEngine(cmd_args.target, config, runtime_logger)
         await execute_forensic_pipeline(cmd_args.target, core_engine, report_gen, persistence, runtime_logger)
+        return 0
     else:
         cli_parser.print_help()
+        return 0
 
 
 def main():
     """Console-script entry point installed by the package metadata."""
     try:
-        asyncio.run(entrypoint())
+        return asyncio.run(entrypoint())
     except KeyboardInterrupt:
         return 130
 
