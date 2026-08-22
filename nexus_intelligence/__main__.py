@@ -72,7 +72,7 @@ async def entrypoint() -> int:
     cmd_args = cli_parser.parse_args()
     _validate_args(cmd_args, cli_parser)
 
-    runtime_logger = setup_logger(config.verbose)
+    runtime_logger = setup_logger(config.output_dir, verbose=config.verbose)
 
     if cmd_args.file:
         if not os.path.exists(cmd_args.file):

@@ -20,7 +20,7 @@ def test_bulk_flags_are_unambiguous():
 async def test_missing_bulk_file_returns_cli_error(monkeypatch, tmp_path):
     missing = tmp_path / "missing-targets.txt"
     monkeypatch.setattr(sys, "argv", ["nexus-intel", "--file", str(missing)])
-    monkeypatch.setattr(cli, "setup_logger", lambda _verbose: logging.getLogger("nexus-cli-test"))
+    monkeypatch.setattr(cli, "setup_logger", lambda *args, **kwargs: logging.getLogger("nexus-cli-test"))
 
     assert await cli.entrypoint() == 2
 

@@ -9,9 +9,16 @@ class MailIntelligence(BaseModule):
     Forensic Mail Infrastructure Analysis.
     Inspects SPF, DMARC, and performs SMTP banner grabbing.
     """
+    def _resolver(self) -> dns.asyncresolver.Resolver:
+        resolver = dns.asyncresolver.Resolver()
+        resolver.nameservers = self.config.dns_resolvers
+        resolver.timeout = self.config.timeout
+        resolver.lifetime = self.config.timeout
+        return resolver
+
     async def get_mx_records(self) -> List[str]:
         try:
-            resolver = dns.asyncresolver.Resolver()
+            resolver = self._resolver()
             answers = await resolver.resolve(self.target, 'MX')
             return [str(r.exchange).rstrip('.') for r in answers]
         except Exception as exc:
@@ -20,7 +27,7 @@ class MailIntelligence(BaseModule):
 
     async def check_policy(self, rtype: str) -> str:
         try:
-            resolver = dns.asyncresolver.Resolver()
+            resolver = self._resolver()
             # Prefix for DMARC is _dmarc.
             target = f"_dmarc.{self.target}" if rtype.upper() == "DMARC" else self.target
             answers = await resolver.resolve(target, 'TXT')

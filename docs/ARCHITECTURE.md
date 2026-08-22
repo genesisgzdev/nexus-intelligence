@@ -26,7 +26,7 @@ flowchart LR
     V --> AUD[VectorIntegrityAuditor]
 ```
 
-El runtime no declara Redis, MongoDB ni Milvus. La persistencia activa es SQLite y la correlación activa es TF-IDF local.
+El runtime no declara Redis, MongoDB ni Milvus. La persistencia activa es SQLite y la correlación activa es TF-IDF local. Tampoco ofrece proxy, DoH ni CT externo: no hay una API SaaS de reputación o inteligencia en el camino de ejecución.
 
 ## 2. Objetivo único
 

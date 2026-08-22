@@ -6,6 +6,9 @@ All notable changes to this project will be documented in this file.
 
 - Actualiza checkout en CI y releases a la generación que ejecuta sobre Node 24.
 - Actualiza `setup-python` y `setup-uv` a sus acciones actuales para eliminar la ruta Node 20 del pipeline.
+- Corrige la inicialización del logger del CLI y elimina settings y dependencias sin uso que podían sugerir proxy, DoH o servicios externos.
+- Aplica los resolvers y timeouts configurados a MX, SPF, DMARC y descubrimiento de subdominios; limita el corpus local de correlación y audita todas sus normas.
+- Reduce el contexto Docker al excluir entornos virtuales, cachés e informes locales.
 
 ## [3.3.2] - 2026-08-22
 

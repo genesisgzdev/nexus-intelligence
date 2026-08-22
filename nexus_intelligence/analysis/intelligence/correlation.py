@@ -5,6 +5,9 @@ from typing import List, Dict, Any
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+MAX_CORRELATION_ITEMS = 5_000
+MAX_CORRELATION_LINE_BYTES = 1_048_576
+
 class VectorCorrelator:
     """
     High-performance Semantic Correlation Engine.
@@ -36,6 +39,10 @@ class VectorCorrelator:
         if not os.path.exists(log_path): return
         with open(log_path, "r", encoding="utf-8") as f:
             for line in f:
+                if len(line.encode("utf-8")) > MAX_CORRELATION_LINE_BYTES:
+                    continue
+                if len(self.corpus) >= MAX_CORRELATION_ITEMS:
+                    break
                 try:
                     data = json.loads(line)
                     text = f"EDR: {data.get('category')} {data.get('description')} {data.get('ioc')}"
@@ -47,6 +54,8 @@ class VectorCorrelator:
 
     def ingest_nexus_results(self, db_results: List[Dict[str, Any]]):
         for entry in db_results:
+            if len(self.corpus) >= MAX_CORRELATION_ITEMS:
+                break
             text = f"NEXUS: {entry.get('target')} {entry.get('module')} {str(entry.get('data'))}"
             self.corpus.append(text)
             self.metadata.append({"source": "NEXUS", "original": entry})
