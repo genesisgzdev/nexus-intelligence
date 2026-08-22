@@ -57,7 +57,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant CLI as --file
+    participant CLI as "--file"
     participant Q as asyncio Queue
     participant W as worker
     participant E as IntelligenceEngine target
