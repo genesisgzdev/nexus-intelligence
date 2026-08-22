@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
 - Usa SQLite WAL, timeout de espera y una única cola de escritura por proceso.
 - Escapa observaciones en los informes y restringe sus archivos a permisos `0600`.
 - Retira settings de Redis, MongoDB y Milvus que no pertenecían al runtime.
+- Añade `--correlate` para resumir similitudes TF-IDF entre objetivos distintos después de un bulk.
+- Conserva una ingesta sin vocabulario útil como resultado incompleto en vez de abortar el escaneo.
 
 ## [3.3.1] - 2026-08-20
 
