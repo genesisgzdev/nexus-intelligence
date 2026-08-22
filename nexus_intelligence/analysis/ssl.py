@@ -5,6 +5,7 @@ import hashlib
 from typing import Dict, Any, List
 from cryptography import x509
 from nexus_intelligence.analysis.base import BaseModule
+from nexus_intelligence.core.security import SecurityValidator
 
 class SSLForensics(BaseModule):
     """
@@ -21,9 +22,11 @@ class SSLForensics(BaseModule):
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE 
 
-            # Raw async socket connection
+            # Pin the socket destination to the address that passed the SSRF
+            # policy. Keep the hostname as SNI for the requested virtual host.
+            destination = SecurityValidator.resolve_public_addresses(self.target)[0]
             reader, writer = await asyncio.open_connection(
-                self.target, 443, ssl=ctx, server_hostname=self.target
+                destination, 443, ssl=ctx, server_hostname=self.target
             )
             ssl_obj = writer.get_extra_info('ssl_object')
             der_cert = ssl_obj.getpeercert(True)

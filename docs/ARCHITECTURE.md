@@ -77,7 +77,7 @@ sequenceDiagram
 
 El bulk ejecuta y persiste cada objetivo, pero no ejecuta la correlación histórica/TDS al finalizar todo el archivo. `--concurrency` se limita a `NEXUS_MAX_CONCURRENT`; los fallos de un módulo quedan como `module_fault` y no cancelan los otros módulos.
 
-Los módulos HTTP usan redirects manuales con un máximo de cinco saltos. Cada destino debe ser HTTP(S), no puede incluir credenciales y vuelve a pasar por `SecurityValidator`. La conexión TLS inspecciona el certificado sin usarlo como una decisión de reputación.
+Los módulos HTTP usan redirects manuales con un máximo de cinco saltos. Cada destino debe ser HTTP(S), no puede incluir credenciales y vuelve a pasar por `SecurityValidator`. TLS resuelve una IP pública validada y conecta contra ella con el hostname original como SNI; SMTP aplica el mismo límite a cada MX. El cliente HTTP vuelve a validar los destinos, pero su transporte depende de la resolución interna de `curl_cffi`.
 
 ## 4. Datos y evidencia
 

@@ -44,7 +44,7 @@ class SubdomainDiscovery(BaseModule):
         if is_wildcard:
             return {"error": "Wildcard DNS detected. Manual inspection required."}
 
-        sem = asyncio.Semaphore(100) # Elevated concurrency for Desktop environment
+        sem = asyncio.Semaphore(max(1, min(self.config.max_concurrent, 100)))
         tasks = [self._resolve(w, sem) for w in self.BASE_WORDS]
         
         results = await asyncio.gather(*tasks)
