@@ -1,7 +1,7 @@
 import re
 import random
 import asyncio
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, urlunsplit
 from typing import Dict, Any, List
 from curl_cffi.requests import AsyncSession
 from bs4 import BeautifulSoup
@@ -24,6 +24,21 @@ SIGNATURES = {
     }
 }
 
+
+def pinned_http_request(url: str) -> tuple[str, str]:
+    """Build a request URL pinned to an address accepted by the SSRF gate."""
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise ValueError("request target is not an allowed HTTP(S) URL")
+    destination = SecurityValidator.resolve_public_addresses(parsed.hostname)[0]
+    host_header = parsed.hostname
+    if parsed.port is not None and parsed.port not in {80, 443}:
+        host_header = f"{host_header}:{parsed.port}"
+    if ":" in destination and not destination.startswith("["):
+        destination = f"[{destination}]"
+    pinned_netloc = destination if parsed.port is None else f"{destination}:{parsed.port}"
+    return urlunsplit((parsed.scheme, pinned_netloc, parsed.path or "/", parsed.query, "")), host_header
+
 class WebIntelligence(BaseModule):
     """
     Advanced Web Intelligence Engine.
@@ -43,7 +58,14 @@ class WebIntelligence(BaseModule):
                 current_url = f"https://{self.target}"
                 r = None
                 for _ in range(5):
-                    r = await s.get(current_url, timeout=self.config.timeout, verify=False, allow_redirects=False)
+                    pinned_url, host_header = pinned_http_request(current_url)
+                    r = await s.get(
+                        pinned_url,
+                        headers={"Host": host_header},
+                        timeout=self.config.timeout,
+                        verify=False,
+                        allow_redirects=False,
+                    )
                     if r.status_code not in {301, 302, 303, 307, 308}:
                         break
                     location = r.headers.get("Location")

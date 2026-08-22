@@ -8,6 +8,7 @@ from nexus_intelligence.analysis.intelligence.correlation import VectorCorrelato
 from nexus_intelligence.analysis.intelligence.integrity import VectorIntegrityAuditor
 from nexus_intelligence.analysis.mail import MailIntelligence
 from nexus_intelligence.analysis.subdomains import SubdomainDiscovery
+from nexus_intelligence.analysis.web import pinned_http_request
 from nexus_intelligence.core.persistence import PersistenceManager
 from nexus_intelligence.core.orchestrator import IntelligenceOrchestrator
 from nexus_intelligence.core.security import SecurityValidator
@@ -32,6 +33,21 @@ def test_security_validator_accepts_public_dns_answers(monkeypatch):
     monkeypatch.setattr(socket, "getaddrinfo", lambda *args, **kwargs: answers)
 
     assert SecurityValidator.is_safe_target("public.example") is True
+
+
+def test_http_transport_pins_validated_ip_and_preserves_host(monkeypatch):
+    observed = []
+
+    def resolve(host):
+        observed.append(host)
+        return ["203.0.113.8"]
+
+    monkeypatch.setattr(SecurityValidator, "resolve_public_addresses", resolve)
+    url, host = pinned_http_request("https://public.example/path?q=1")
+
+    assert url == "https://203.0.113.8/path?q=1"
+    assert host == "public.example"
+    assert observed == ["public.example"]
 
 
 def test_reporting_uses_private_safe_filename_and_escapes_markup(tmp_path):
