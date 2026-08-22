@@ -34,6 +34,7 @@ class SecurityValidator:
                 or ip.is_multicast
                 or ip.is_reserved
                 or ip.is_unspecified
+                or not ip.is_global
             ):
                 raise ValueError("target resolves to a restricted address")
         return sorted(str(ip) for ip in addresses)
