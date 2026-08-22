@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- Actualiza checkout en CI y releases a la generación que ejecuta sobre Node 24.
+
 ## [3.3.2] - 2026-08-22
 
 ### Fixed
