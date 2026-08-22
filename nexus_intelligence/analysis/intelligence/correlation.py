@@ -7,6 +7,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 MAX_CORRELATION_ITEMS = 5_000
 MAX_CORRELATION_LINE_BYTES = 1_048_576
+MAX_CORRELATION_COMPARISONS = 2_000_000
 
 class VectorCorrelator:
     """
@@ -19,6 +20,7 @@ class VectorCorrelator:
         self.corpus = []
         self.matrix = None
         self.index_error = None
+        self.correlation_truncated = False
 
     def _update_index(self):
         if not self.corpus:
@@ -89,17 +91,26 @@ class VectorCorrelator:
         if self.matrix is None or len(self.metadata) < 2:
             return []
 
-        similarities = cosine_similarity(self.matrix)
         pairs = []
+        comparisons = 0
+        self.correlation_truncated = False
         for left in range(len(self.metadata)):
+            if comparisons >= MAX_CORRELATION_COMPARISONS:
+                self.correlation_truncated = True
+                break
+            similarities = cosine_similarity(self.matrix[left:left + 1], self.matrix).flatten()
             left_entry = self.metadata[left].get("original", {})
             left_target = left_entry.get("target")
             for right in range(left + 1, len(self.metadata)):
+                comparisons += 1
+                if comparisons > MAX_CORRELATION_COMPARISONS:
+                    self.correlation_truncated = True
+                    break
                 right_entry = self.metadata[right].get("original", {})
                 right_target = right_entry.get("target")
                 if not left_target or not right_target or left_target == right_target:
                     continue
-                score = float(similarities[left, right])
+                score = float(similarities[right])
                 if score < threshold:
                     continue
                 pairs.append({
@@ -107,6 +118,8 @@ class VectorCorrelator:
                     "left": self.metadata[left],
                     "right": self.metadata[right],
                 })
+            if self.correlation_truncated:
+                break
 
         pairs.sort(key=lambda item: item["score"], reverse=True)
         return pairs[:top_k]

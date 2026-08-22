@@ -36,7 +36,7 @@ La validación de objetivos y de los subdominios descubiertos comprueba todas la
 
 La conexión TLS vuelve a resolver el host y abre el socket contra la IP pública validada, manteniendo el hostname como SNI. Los banners SMTP aplican la misma validación a cada servidor MX. HTTP también fija cada solicitud a una IP validada y conserva el `Host` original para el virtual host; cada redirect vuelve a pasar por la misma frontera.
 
-La correlación es una matriz TF-IDF reproducible. No depende de FAISS, de embeddings remotos ni de una API de inteligencia externa. La configuración no ofrece proxy, DoH ni CT externo: las únicas consultas salen por los resolvers DNS configurados y por los módulos de observación autorizados. El módulo web lee como máximo 2 MiB por respuesta y marca el informe cuando el cuerpo queda truncado.
+La correlación es una matriz TF-IDF reproducible. No depende de FAISS, de embeddings remotos ni de una API de inteligencia externa. La configuración no ofrece proxy, DoH ni CT externo: las únicas consultas salen por los resolvers DNS configurados y por los módulos de observación autorizados. El módulo web lee como máximo 2 MiB por respuesta y marca el informe cuando el cuerpo queda truncado. La comparación bulk tiene un presupuesto de dos millones de pares y marca el índice como incompleto si lo alcanza.
 
 ## Instalación
 

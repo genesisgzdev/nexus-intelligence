@@ -87,5 +87,6 @@ Los módulos HTTP usan redirects manuales con un máximo de cinco saltos. Cada d
 - La base activa `journal_mode=WAL`, usa `busy_timeout` y serializa las escrituras dentro de cada `PersistenceManager`.
 - DNS, TLS, HTTP, SMTP y subdominios dependen de respuestas de red en ese momento. Una ausencia o timeout es una observación incompleta, no una conclusión de seguridad.
 - HTTP lee como máximo 2 MiB por respuesta; `body_truncated` distingue un documento cortado de una respuesta completa.
+- La correlación bulk calcula por bloques y corta después de dos millones de pares; `correlation_truncated` evita presentar un resultado parcial como exhaustivo.
 - `tests/test_runtime.py` cubre mail SPF/DMARC, wildcard, persistencia, correlación, JSONL malformado, integridad TF-IDF y el target correcto en bulk.
 - Un corpus sin vocabulario útil no aborta la ingesta: el correlador conserva `index_error` y devuelve resultados vacíos hasta que haya señales comparables.
