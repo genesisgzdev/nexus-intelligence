@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import socket
 
 import pytest
@@ -59,6 +60,26 @@ def test_reporting_uses_private_safe_filename_and_escapes_markup(tmp_path):
     assert path.startswith(str(tmp_path))
     assert "<script>" not in report
     assert "alert(2)" in report
+
+
+def test_batch_summary_is_sanitized_and_written_with_restricted_permissions(tmp_path):
+    path = ReportingEngine(str(tmp_path)).generate_batch_summary(
+        {
+            "target_count": 2,
+            "finding_count": 3,
+            "matches": [
+                {
+                    "score": 0.81,
+                    "left": {"original": {"target": "<script>", "module": "dns"}},
+                    "right": {"original": {"target": "bravo.test", "module": "tls"}},
+                }
+            ],
+        }
+    )
+    report = open(path, encoding="utf-8").read()
+    assert "<script>" not in report
+    assert "0.81" in report
+    assert oct(os.stat(path).st_mode & 0o777) == "0o600"
 
 
 class StaticConfig:
@@ -179,6 +200,36 @@ def test_tfidf_integrity_audits_actual_matrix():
     assert audit["vectorizer"] == "tfidf"
     assert audit["index_size"] == 2
     assert audit["is_healthy"] is True
+
+
+def test_bulk_correlation_returns_only_cross_target_pairs():
+    correlator = VectorCorrelator()
+    correlator.ingest_nexus_results(
+        [
+            {"target": "alpha.test", "module": "dns", "data": {"issuer": "shared-ca", "mx": "mail"}},
+            {"target": "alpha.test", "module": "tls", "data": {"issuer": "shared-ca", "mx": "mail"}},
+            {"target": "bravo.test", "module": "dns", "data": {"issuer": "shared-ca", "mx": "mail"}},
+        ]
+    )
+
+    pairs = correlator.find_related_pairs(threshold=0.1)
+
+    assert pairs
+    assert all(
+        pair["left"]["original"]["target"] != pair["right"]["original"]["target"]
+        for pair in pairs
+    )
+
+
+def test_tfidf_empty_vocabulary_does_not_abort_ingestion():
+    correlator = VectorCorrelator()
+    correlator.corpus.append("the and or")
+    correlator.metadata.append({"source": "fixture", "original": {}})
+    correlator._update_index()
+
+    assert correlator.matrix is None
+    assert correlator.index_error
+    assert correlator.find_related_threats("anything") == []
 
 
 def test_edr_ingestion_skips_malformed_json(tmp_path):

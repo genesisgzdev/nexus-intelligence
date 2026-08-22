@@ -15,10 +15,22 @@ class VectorCorrelator:
         self.metadata = []
         self.corpus = []
         self.matrix = None
+        self.index_error = None
 
     def _update_index(self):
-        if self.corpus:
+        if not self.corpus:
+            self.matrix = None
+            self.index_error = None
+            return
+        try:
             self.matrix = self.vectorizer.fit_transform(self.corpus)
+            self.index_error = None
+        except ValueError as exc:
+            # A corpus made only of stop words or empty observations has no
+            # usable TF-IDF vocabulary. Keep ingestion successful and expose
+            # the reason to callers instead of crashing a completed scan.
+            self.matrix = None
+            self.index_error = str(exc)
 
     def ingest_edr_logs(self, log_path: str):
         if not os.path.exists(log_path): return
@@ -56,3 +68,36 @@ class VectorCorrelator:
                     "artifact": self.metadata[idx]
                 })
         return matches
+
+    def find_related_pairs(self, threshold: float = 0.3, top_k: int = 20) -> List[Dict[str, Any]]:
+        """Return similar findings belonging to different targets.
+
+        Bulk correlation compares persisted observations directly rather than
+        inventing a single query string for the whole file. Pairs from the
+        same target are excluded because they describe one scan, not a
+        cross-target relationship.
+        """
+        if self.matrix is None or len(self.metadata) < 2:
+            return []
+
+        similarities = cosine_similarity(self.matrix)
+        pairs = []
+        for left in range(len(self.metadata)):
+            left_entry = self.metadata[left].get("original", {})
+            left_target = left_entry.get("target")
+            for right in range(left + 1, len(self.metadata)):
+                right_entry = self.metadata[right].get("original", {})
+                right_target = right_entry.get("target")
+                if not left_target or not right_target or left_target == right_target:
+                    continue
+                score = float(similarities[left, right])
+                if score < threshold:
+                    continue
+                pairs.append({
+                    "score": round(score, 4),
+                    "left": self.metadata[left],
+                    "right": self.metadata[right],
+                })
+
+        pairs.sort(key=lambda item: item["score"], reverse=True)
+        return pairs[:top_k]
