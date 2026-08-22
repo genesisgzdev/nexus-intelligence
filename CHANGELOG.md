@@ -22,6 +22,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+- Rechaza respuestas DNS privadas durante el descubrimiento de subdominios y documenta esa frontera junto con el resto del SSRF gating.
+
 ## [3.3.1] - 2026-08-20
 
 ### Changed

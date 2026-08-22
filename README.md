@@ -32,7 +32,7 @@ Los módulos actuales cubren:
 - correlación local con TF-IDF y `scikit-learn`
 - ingesta opcional de eventos JSONL de [Threat Detection Suite](https://github.com/genesisgzdev/threat-detection-suite)
 
-La validación de objetivos comprueba todas las respuestas DNS y bloquea rangos privados, loopback, link-local, multicast, reservados y no especificados. El módulo web no sigue redirects a ciegas: cada salto HTTP(S) vuelve a validarse y hay un máximo de cinco.
+La validación de objetivos y de los subdominios descubiertos comprueba todas las respuestas DNS y bloquea rangos privados, loopback, link-local, multicast, reservados y no especificados. El módulo web no sigue redirects a ciegas: cada salto HTTP(S) vuelve a validarse y hay un máximo de cinco.
 
 La conexión TLS vuelve a resolver el host y abre el socket contra la IP pública validada, manteniendo el hostname como SNI. Los banners SMTP aplican la misma validación a cada servidor MX. HTTP también fija cada solicitud a una IP validada y conserva el `Host` original para el virtual host; cada redirect vuelve a pasar por la misma frontera.
 
