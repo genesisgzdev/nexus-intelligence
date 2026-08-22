@@ -3,6 +3,7 @@ import dns.asyncresolver
 import uuid
 from typing import Dict, Any, List
 from nexus_intelligence.analysis.base import BaseModule
+from nexus_intelligence.core.security import SecurityValidator
 
 class SubdomainDiscovery(BaseModule):
     """
@@ -30,8 +31,8 @@ class SubdomainDiscovery(BaseModule):
             full = f"{sub}.{self.target}"
             try:
                 resolver = dns.asyncresolver.Resolver()
-                # We query 'A' and 'CNAME' records concurrently
-                await resolver.resolve(full, 'A')
+                answers = await resolver.resolve(full, 'A')
+                SecurityValidator.validate_public_addresses(record.address for record in answers)
                 return full
             except Exception:
                 return ""

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -217,13 +218,26 @@ async def test_subdomain_wildcard_probe_uses_imported_uuid(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_subdomain_discovery_rejects_private_answer(monkeypatch):
+    module = SubdomainDiscovery("example.test", StaticConfig(), LOGGER)
+
+    class Resolver:
+        async def resolve(self, _name, _record_type):
+            return [type("A", (), {"address": "127.0.0.1"})()]
+
+    monkeypatch.setattr("nexus_intelligence.analysis.subdomains.dns.asyncresolver.Resolver", Resolver)
+
+    assert await module._resolve("admin", asyncio.Semaphore(1)) == ""
+
+
+@pytest.mark.asyncio
 async def test_subdomain_resolver_uses_configured_concurrency_cap(monkeypatch):
     module = SubdomainDiscovery("example.test", StaticConfig(), LOGGER)
     observed = []
 
     async def resolve(_self, name, record_type):
         observed.append(name)
-        return ["203.0.113.10"]
+        return [type("A", (), {"address": "8.8.8.8"})()]
 
     async def no_wildcard():
         return False
