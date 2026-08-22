@@ -1,5 +1,6 @@
 import aiosqlite
 import json
+import asyncio
 from typing import Any, Dict, List
 
 class PersistenceManager:
@@ -9,9 +10,12 @@ class PersistenceManager:
     """
     def __init__(self, db_path: str = "nexus_forensics.db"):
         self.db_path = db_path
+        self._write_lock = asyncio.Lock()
 
     async def initialize(self):
         async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("PRAGMA journal_mode=WAL")
+            await db.execute("PRAGMA busy_timeout=5000")
             await db.execute('''
                 CREATE TABLE IF NOT EXISTS intelligence (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,12 +28,14 @@ class PersistenceManager:
             await db.commit()
 
     async def save_finding(self, target: str, module: str, data: Dict[str, Any]):
-        async with aiosqlite.connect(self.db_path) as db:
-            await db.execute(
-                "INSERT INTO intelligence (target, module, data) VALUES (?, ?, ?)",
-                (target, module, json.dumps(data))
-            )
-            await db.commit()
+        async with self._write_lock:
+            async with aiosqlite.connect(self.db_path) as db:
+                await db.execute("PRAGMA busy_timeout=5000")
+                await db.execute(
+                    "INSERT INTO intelligence (target, module, data) VALUES (?, ?, ?)",
+                    (target, module, json.dumps(data))
+                )
+                await db.commit()
 
     async def get_all_findings(self) -> List[Dict[str, Any]]:
         """Return persisted findings in the shape consumed by VectorCorrelator."""

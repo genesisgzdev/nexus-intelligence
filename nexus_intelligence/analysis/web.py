@@ -1,10 +1,12 @@
 import re
 import random
 import asyncio
+from urllib.parse import urljoin, urlparse
 from typing import Dict, Any, List
 from curl_cffi.requests import AsyncSession
 from bs4 import BeautifulSoup
 from nexus_intelligence.analysis.base import BaseModule
+from nexus_intelligence.core.security import SecurityValidator
 
 SIGNATURES = {
     "frameworks": {
@@ -38,11 +40,26 @@ class WebIntelligence(BaseModule):
         
         try:
             async with AsyncSession(impersonate="chrome120") as s:
-                r = await s.get(
-                    f"https://{self.target}",
-                    timeout=self.config.timeout,
-                    verify=False
-                )
+                current_url = f"https://{self.target}"
+                r = None
+                for _ in range(5):
+                    r = await s.get(current_url, timeout=self.config.timeout, verify=False, allow_redirects=False)
+                    if r.status_code not in {301, 302, 303, 307, 308}:
+                        break
+                    location = r.headers.get("Location")
+                    if not location:
+                        break
+                    next_url = urljoin(current_url, location)
+                    parsed = urlparse(next_url)
+                    if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
+                        raise ValueError("redirect target is not an allowed HTTP(S) host")
+                    if not SecurityValidator.is_safe_target(parsed.hostname):
+                        raise ValueError("redirect target resolves to a restricted address")
+                    current_url = next_url
+                if r is None:
+                    raise RuntimeError("web request did not produce a response")
+                if r.status_code in {301, 302, 303, 307, 308}:
+                    raise ValueError("redirect limit exceeded")
 
                 res['status_code'] = r.status_code
                 

@@ -17,9 +17,6 @@ class NexusSettings(BaseSettings):
     verbose: bool = Field(default=False)
 
     # Enterprise Persistence (Added)
-    redis_url: Optional[str] = Field(default=None, description="Redis for result caching and task queuing")
-    mongodb_url: Optional[str] = Field(default=None, description="MongoDB for persistent intelligence graph")
-    milvus_url: Optional[str] = Field(default=None, description="Vector DB for similarity-based threat intelligence")
 
     # Networking
     proxy_url: Optional[str] = Field(default=None)

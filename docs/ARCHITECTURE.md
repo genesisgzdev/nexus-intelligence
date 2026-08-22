@@ -19,14 +19,14 @@ flowchart LR
     BT --> E
     E --> SAFE[SecurityValidator]
     E --> MOD[DNS Web SSL Mail and Subdomains]
-    MOD --> DB[(SQLite findings)]
+    MOD --> DB[(SQLite findings WAL)]
     MOD --> REP[ReportingEngine Markdown]
     DB --> V[VectorCorrelator scikit-learn TF-IDF]
     TDS[TDS_LOG_PATH JSONL optional] --> V
     V --> AUD[VectorIntegrityAuditor]
 ~~~
 
-Configuración que existe pero no forma parte del camino actual: `redis_url`, `mongodb_url` y `milvus_url` se cargan como settings opcionales, pero ningún runtime module los usa. No son dependencias ocultas ni backends activos.
+El runtime no declara Redis, MongoDB ni Milvus. La persistencia activa es SQLite y la correlación activa es TF-IDF local.
 
 ## 2. Objetivo único
 
@@ -77,9 +77,12 @@ sequenceDiagram
 
 El bulk ejecuta y persiste cada objetivo, pero no ejecuta la correlación histórica/TDS al finalizar todo el archivo. `--concurrency` se limita a `NEXUS_MAX_CONCURRENT`; los fallos de un módulo quedan como `module_fault` y no cancelan los otros módulos.
 
+Los módulos HTTP usan redirects manuales con un máximo de cinco saltos. Cada destino debe ser HTTP(S), no puede incluir credenciales y vuelve a pasar por `SecurityValidator`. La conexión TLS inspecciona el certificado sin usarlo como una decisión de reputación.
+
 ## 4. Datos y evidencia
 
 - SQLite almacena `target`, `module`, JSON serializado y timestamp mediante queries parametrizadas.
-- Los reportes escapan el target en el encabezado, pero los bloques JSON representan observaciones del scan y deben tratarse como material sensible.
+- Los reportes escapan encabezados y JSON observados, usan nombres de archivo acotados por slug y hash y se escriben con permisos `0600`.
+- La base activa `journal_mode=WAL`, usa `busy_timeout` y serializa las escrituras dentro de cada `PersistenceManager`.
 - DNS, TLS, HTTP, SMTP y subdominios dependen de respuestas de red en ese momento. Una ausencia o timeout es una observación incompleta, no una conclusión de seguridad.
 - `tests/test_runtime.py` cubre mail SPF/DMARC, wildcard, persistencia, correlación, JSONL malformado, integridad TF-IDF y el target correcto en bulk.
