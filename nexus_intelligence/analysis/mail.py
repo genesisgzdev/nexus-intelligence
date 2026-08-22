@@ -33,18 +33,24 @@ class MailIntelligence(BaseModule):
             return "Lookup Failed"
 
     async def grab_smtp_banner(self, host: str) -> str:
+        writer = None
         try:
             destination = SecurityValidator.resolve_public_addresses(host)[0]
             reader, writer = await asyncio.wait_for(
                 asyncio.open_connection(destination, 25), timeout=5
             )
-            banner = await reader.read(1024)
-            writer.close()
-            await writer.wait_closed()
+            banner = await asyncio.wait_for(reader.read(1024), timeout=5)
             return banner.decode().strip()
         except Exception as exc:
             self.logger.debug("SMTP banner lookup failed for %s: %s", host, exc)
             return "Timeout/Refused"
+        finally:
+            if writer is not None:
+                writer.close()
+                try:
+                    await asyncio.wait_for(writer.wait_closed(), timeout=5)
+                except Exception:
+                    self.logger.debug("SMTP writer close did not complete for %s", host)
 
     async def run(self) -> Dict[str, Any]:
         self.logger.info(f"Analyzing mail infrastructure: {self.target}")

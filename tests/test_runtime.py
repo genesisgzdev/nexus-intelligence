@@ -140,6 +140,33 @@ async def test_mail_dmarc_policy_queries_dmarc_subdomain(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_mail_banner_closes_socket_when_read_fails(monkeypatch):
+    module = MailIntelligence("example.test", StaticConfig(), LOGGER)
+    closed = []
+
+    monkeypatch.setattr(SecurityValidator, "resolve_public_addresses", lambda _host: ["203.0.113.10"])
+
+    class Reader:
+        async def read(self, _size):
+            raise RuntimeError("banner read failed")
+
+    class Writer:
+        def close(self):
+            closed.append("close")
+
+        async def wait_closed(self):
+            closed.append("wait_closed")
+
+    async def open_connection(_host, _port):
+        return Reader(), Writer()
+
+    monkeypatch.setattr("nexus_intelligence.analysis.mail.asyncio.open_connection", open_connection)
+
+    assert await module.grab_smtp_banner("mx.example.test") == "Timeout/Refused"
+    assert closed == ["close", "wait_closed"]
+
+
+@pytest.mark.asyncio
 async def test_subdomain_wildcard_probe_uses_imported_uuid(monkeypatch):
     module = SubdomainDiscovery("example.test", StaticConfig(), LOGGER)
     observed = []
