@@ -31,6 +31,8 @@ async def execute_forensic_pipeline(target: str, engine: IntelligenceEngine, rep
     report_artifact = reporting.generate_markdown(target, execution_results)
     logger.info(f"Forensic artifact generated: {report_artifact}")
 
+    failed = any(isinstance(result, dict) and "error" in result for result in execution_results.values())
+
     # Automated Semantic Linkage
     v_correlator = VectorCorrelator()
     edr_log_stream = os.environ.get("TDS_LOG_PATH", "logs/tds_threats.jsonl")
@@ -47,6 +49,8 @@ async def execute_forensic_pipeline(target: str, engine: IntelligenceEngine, rep
     v_auditor = VectorIntegrityAuditor(v_correlator)
     if not v_auditor.audit_index().get("is_healthy"):
         logger.warning("Vector index drift detected. Search precision may be compromised.")
+
+    return 1 if failed else 0
 
 def _build_parser() -> argparse.ArgumentParser:
     cli_parser = argparse.ArgumentParser(description="Nexus Intelligence: Asynchronous OSINT Runtime")
@@ -79,7 +83,7 @@ async def entrypoint() -> int:
             runtime_logger.error(f"Configuration Fault: Target file '{cmd_args.file}' not accessible.")
             return 2
 
-        persistence = PersistenceManager()
+        persistence = PersistenceManager(config.db_path)
         await persistence.initialize()
         report_gen = ReportingEngine(config.output_dir)
         
@@ -97,25 +101,25 @@ async def entrypoint() -> int:
             edr_log_stream = os.environ.get("TDS_LOG_PATH", "logs/tds_threats.jsonl")
             if os.path.exists(edr_log_stream):
                 correlator.ingest_edr_logs(edr_log_stream)
-            findings = await persistence.get_all_findings()
+            findings = [finding for finding in await persistence.get_all_findings() if finding["target"] in set(target_list)]
             correlator.ingest_nexus_results(findings)
             matches = correlator.find_related_pairs()
             summary = {
                 "target_count": len(set(target_list)),
                 "finding_count": len(findings),
                 "matches": matches,
+                "correlation_truncated": correlator.correlation_truncated,
             }
             artifact = report_gen.generate_batch_summary(summary)
             runtime_logger.info("Bulk correlation artifact generated: %s", artifact)
-        return 0
+        return 1 if runtime_orchestrator.failures else 0
         
     elif cmd_args.target:
-        persistence = PersistenceManager()
+        persistence = PersistenceManager(config.db_path)
         await persistence.initialize()
         report_gen = ReportingEngine(config.output_dir)
         core_engine = IntelligenceEngine(cmd_args.target, config, runtime_logger)
-        await execute_forensic_pipeline(cmd_args.target, core_engine, report_gen, persistence, runtime_logger)
-        return 0
+        return await execute_forensic_pipeline(cmd_args.target, core_engine, report_gen, persistence, runtime_logger)
     else:
         cli_parser.print_help()
         return 0

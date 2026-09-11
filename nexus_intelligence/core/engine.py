@@ -28,7 +28,7 @@ class IntelligenceEngine:
         """
         if not await SecurityValidator.is_safe_target_async(self.target, self.config.timeout):
             self.logger.error(f"Security Policy Violation: Target {self.target} resides in restricted address space.")
-            return {"error": "security_violation", "detail": "Restricted_Target_Range"}
+            return {"SecurityValidator": {"error": "security_violation", "detail": "Restricted_Target_Range"}}
 
         results: Dict[str, Any] = {}
         tasks = []

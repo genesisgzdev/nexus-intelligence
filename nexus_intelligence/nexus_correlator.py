@@ -2,12 +2,13 @@ import asyncio
 import os
 from nexus_intelligence.analysis.intelligence.correlation import VectorCorrelator
 from nexus_intelligence.core.persistence import PersistenceManager
+from nexus_intelligence.core.config import config
 
 async def run_correlation():
     print("--- Starting Multi-Project Semantic Correlation ---")
     
     edr_logs = os.environ.get("TDS_LOG_PATH", "logs/tds_threats.jsonl")
-    db_path = os.environ.get("NEXUS_DB_PATH", "nexus_forensics.db")
+    db_path = config.db_path
     
     correlator = VectorCorrelator()
     db = PersistenceManager(db_path)

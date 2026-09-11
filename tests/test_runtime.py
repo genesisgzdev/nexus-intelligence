@@ -131,7 +131,12 @@ async def test_web_runtime_truncates_oversized_stream(monkeypatch):
         async def __aexit__(self, *_args):
             return None
 
-        async def get(self, *_args, **_kwargs):
+        async def get(self, url, **kwargs):
+            from curl_cffi.const import CurlOpt
+            assert url == 'https://example.test'
+            assert kwargs['verify'] is True
+            assert self.curl_options[CurlOpt.RESOLVE] == [b'example.test:443:127.0.0.1']
+            assert self.curl_options[CurlOpt.PROXY] == b''
             return Response()
 
     async def pinned(_url, _timeout):

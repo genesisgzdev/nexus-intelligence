@@ -26,9 +26,9 @@ class SSLForensics(BaseModule):
             # Pin the socket destination to the address that passed the SSRF
             # policy. Keep the hostname as SNI for the requested virtual host.
             destination = (await SecurityValidator.resolve_public_addresses_async(self.target, self.config.timeout))[0]
-            _reader, writer = await asyncio.open_connection(
+            _reader, writer = await asyncio.wait_for(asyncio.open_connection(
                 destination, 443, ssl=ctx, server_hostname=self.target
-            )
+            ), timeout=self.config.timeout)
             try:
                 ssl_obj = writer.get_extra_info('ssl_object')
                 if ssl_obj is None:
@@ -36,7 +36,7 @@ class SSLForensics(BaseModule):
                 der_cert = ssl_obj.getpeercert(True)
             finally:
                 writer.close()
-                await writer.wait_closed()
+                await asyncio.wait_for(writer.wait_closed(), timeout=self.config.timeout)
 
             # Local X.509 Parsing (cryptography library)
             cert = x509.load_der_x509_certificate(der_cert)
@@ -48,7 +48,9 @@ class SSLForensics(BaseModule):
             res['not_valid_after'] = cert.not_valid_after_utc.isoformat()
             res['fingerprint_sha256'] = hashlib.sha256(der_cert).hexdigest()
             res['version'] = cert.version.name
-            res['signature_hash_algorithm'] = cert.signature_hash_algorithm.name
+            algorithm = cert.signature_hash_algorithm
+            res['signature_hash_algorithm'] = algorithm.name if algorithm else None
+            res['certificate_verified'] = False
 
             # Extract Subject Alternative Names (SAN) locally
             try:

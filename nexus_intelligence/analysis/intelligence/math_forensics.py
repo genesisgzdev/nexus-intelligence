@@ -15,10 +15,13 @@ class BenfordAnalyzer:
         Pure mathematical extraction of the first non-zero digit.
         Prevents failures from floating point formatting (scientific notation).
         """
+        if not math.isfinite(v):
+            raise ValueError("Benford observations must be finite")
         if v == 0: return 0
-        v = abs(v)
-        # Use log10 to determine the order of magnitude
-        return int(v / (10 ** int(math.log10(v))))
+        # Inspect the mantissa without an underflowing power of ten. The
+        # shortest decimal representation also handles subnormal floats.
+        mantissa = str(abs(v)).lower().split("e", 1)[0]
+        return next(int(char) for char in mantissa if char in "123456789")
 
     @classmethod
     def compute(cls, values: List[float]) -> Dict[str, Any]:

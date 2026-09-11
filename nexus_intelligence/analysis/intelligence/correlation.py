@@ -1,3 +1,4 @@
+import heapq
 import os
 import json
 import numpy as np
@@ -47,6 +48,8 @@ class VectorCorrelator:
                     break
                 try:
                     data = json.loads(line)
+                    if not isinstance(data, dict):
+                        continue
                     text = f"EDR: {data.get('category')} {data.get('description')} {data.get('ioc')}"
                     self.corpus.append(text)
                     self.metadata.append({"source": "EDR", "original": data})
@@ -64,7 +67,7 @@ class VectorCorrelator:
         self._update_index()
 
     def find_related_threats(self, query_text: str, threshold: float = 0.3, top_k: int = 5) -> List[Dict[str, Any]]:
-        if self.matrix is None: return []
+        if self.matrix is None or top_k <= 0: return []
         
         query_vec = self.vectorizer.transform([query_text])
         similarities = cosine_similarity(query_vec, self.matrix).flatten()
@@ -88,7 +91,7 @@ class VectorCorrelator:
         same target are excluded because they describe one scan, not a
         cross-target relationship.
         """
-        if self.matrix is None or len(self.metadata) < 2:
+        if self.matrix is None or len(self.metadata) < 2 or top_k <= 0:
             return []
 
         pairs = []
@@ -113,13 +116,15 @@ class VectorCorrelator:
                 score = float(similarities[right])
                 if score < threshold:
                     continue
-                pairs.append({
-                    "score": round(score, 4),
-                    "left": self.metadata[left],
-                    "right": self.metadata[right],
-                })
+                candidate = (score, -left, -right)
+                if len(pairs) < top_k:
+                    heapq.heappush(pairs, candidate)
+                elif candidate > pairs[0]:
+                    heapq.heapreplace(pairs, candidate)
             if self.correlation_truncated:
                 break
 
-        pairs.sort(key=lambda item: item["score"], reverse=True)
-        return pairs[:top_k]
+        return [
+            {"score": round(score, 4), "left": self.metadata[-left], "right": self.metadata[-right]}
+            for score, left, right in sorted(pairs, reverse=True)
+        ]

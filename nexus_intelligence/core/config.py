@@ -13,15 +13,12 @@ class NexusSettings(BaseSettings):
     # Core Parameters
     timeout: int = Field(default=15, gt=0)
     max_concurrent: int = Field(default=100, gt=0)
+    db_path: str = Field(default="nexus_forensics.db")
     output_dir: str = Field(default="reports")
     verbose: bool = Field(default=False)
 
     # Networking
     dns_resolvers: List[str] = Field(default_factory=lambda: ["1.1.1.1", "8.8.8.8"])
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        if not os.path.exists(self.output_dir):
-            os.makedirs(self.output_dir, exist_ok=True)
 
 config = NexusSettings()

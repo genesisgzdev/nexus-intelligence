@@ -3,6 +3,7 @@ import json
 import html
 import re
 import hashlib
+import tempfile
 from datetime import datetime
 from typing import Dict, Any
 
@@ -38,10 +39,11 @@ class ReportingEngine:
         slug = re.sub(r"[^A-Za-z0-9._-]+", "_", target).strip("._")[:80] or "target"
         digest = hashlib.sha256(target.encode("utf-8")).hexdigest()[:12]
         filename = f"report_{slug}_{digest}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
-        path = os.path.join(self.output_dir, filename)
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(report)
-        os.chmod(path, 0o600)
+        # Exclusive creation avoids overwriting concurrent scans, and creates
+        # private evidence before writing rather than chmod after exposure.
+        descriptor, path = tempfile.mkstemp(prefix=filename[:-3] + "_", suffix=".md", dir=self.output_dir)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as output:
+            output.write(report)
         return path
 
     def generate_batch_summary(self, summary: Dict[str, Any]) -> str:
@@ -66,8 +68,9 @@ class ReportingEngine:
 
         digest = hashlib.sha256(json.dumps(summary, sort_keys=True, default=str).encode("utf-8")).hexdigest()[:12]
         filename = f"batch_correlation_{digest}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
-        path = os.path.join(self.output_dir, filename)
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(report)
-        os.chmod(path, 0o600)
+        # Exclusive creation avoids overwriting concurrent scans, and creates
+        # private evidence before writing rather than chmod after exposure.
+        descriptor, path = tempfile.mkstemp(prefix=filename[:-3] + "_", suffix=".md", dir=self.output_dir)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as output:
+            output.write(report)
         return path

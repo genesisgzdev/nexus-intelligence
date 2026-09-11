@@ -90,3 +90,13 @@ Ejecuta Nexus solo sobre infraestructura propia o con permiso explícito. Respet
 ## Licencia
 
 MIT. Consulta [LICENSE](LICENSE).
+
+## Integridad de resultados y transporte
+
+HTTP conserva el hostname original para SNI y verificación de certificados, mientras CURLOPT_RESOLVE fija la conexión a la IP pública validada. No utiliza proxies del entorno para saltarse esa frontera. Cada redirect se vuelve a validar. TLS forense puede inspeccionar un certificado sin autenticarlo y lo etiqueta como `certificate_verified: false`; no debe confundirse con una conexión HTTPS verificada.
+
+Los informes nacen con permisos 0600 y nombres únicos incluso dentro del mismo segundo. `NEXUS_DB_PATH` selecciona SQLite; el contenedor guarda DB e informes bajo `/app/reports`, propiedad del usuario de ejecución. Un bind mount debe permitir escritura a ese usuario. El CLI devuelve error cuando falla un módulo o un objetivo bulk; un informe generado no significa que todas las consultas hayan funcionado.
+
+Benford excluye valores no finitos y extrae el primer dígito significativo también para fracciones y subnormales. La correlación ignora líneas JSON que no son objetos y conserva como máximo `top_k` pares en memoria. El límite de comparaciones se comunica como truncamiento: una lista parcial no acredita que no existan otras relaciones.
+
+El inventario completo de archivos y flujos está en [docs/REPOSITORY_MAP.md](docs/REPOSITORY_MAP.md).

@@ -4,6 +4,7 @@ import asyncio
 from urllib.parse import urljoin, urlparse, urlunsplit
 from typing import Dict, Any, List
 from curl_cffi.requests import AsyncSession
+from curl_cffi.const import CurlOpt
 from bs4 import BeautifulSoup
 from nexus_intelligence.analysis.base import BaseModule
 from nexus_intelligence.core.security import SecurityValidator
@@ -30,7 +31,7 @@ MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 def pinned_http_request(url: str) -> tuple[str, str]:
     """Build a request URL pinned to an address accepted by the SSRF gate."""
     parsed = urlparse(url)
-    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
         raise ValueError("request target is not an allowed HTTP(S) URL")
     destination = SecurityValidator.resolve_public_addresses(parsed.hostname)[0]
     host_header = parsed.hostname
@@ -45,7 +46,7 @@ def pinned_http_request(url: str) -> tuple[str, str]:
 async def pinned_http_request_async(url: str, timeout: float) -> tuple[str, str]:
     """Build a request URL without blocking the event loop on DNS."""
     parsed = urlparse(url)
-    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
         raise ValueError("request target is not an allowed HTTP(S) URL")
     destination = (await SecurityValidator.resolve_public_addresses_async(parsed.hostname, timeout))[0]
     host_header = parsed.hostname
@@ -76,11 +77,20 @@ class WebIntelligence(BaseModule):
                 r = None
                 for _ in range(5):
                     pinned_url, host_header = await pinned_http_request_async(current_url, self.config.timeout)
+                    parsed_target = urlparse(current_url)
+                    pinned_address = urlparse(pinned_url).hostname
+                    port = parsed_target.port or (443 if parsed_target.scheme == "https" else 80)
+                    address = f"[{pinned_address}]" if ":" in pinned_address else pinned_address
+                    # Keep the original hostname for SNI and certificate
+                    # verification while pinning the actual network address.
+                    s.curl_options = {
+                        CurlOpt.RESOLVE: [f"{parsed_target.hostname}:{port}:{address}".encode()],
+                        CurlOpt.PROXY: b"",
+                    }
                     r = await s.get(
-                        pinned_url,
-                        headers={"Host": host_header},
+                        current_url,
                         timeout=self.config.timeout,
-                        verify=False,
+                        verify=True,
                         allow_redirects=False,
                         stream=True,
                     )

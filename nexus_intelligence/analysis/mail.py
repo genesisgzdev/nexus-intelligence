@@ -32,8 +32,9 @@ class MailIntelligence(BaseModule):
             target = f"_dmarc.{self.target}" if rtype.upper() == "DMARC" else self.target
             answers = await resolver.resolve(target, 'TXT')
             for r in answers:
-                txt = str(r).lower()
-                if "v=spf1" in txt or "v=dmarc1" in txt: return str(r)
+                txt = b"".join(r.strings).decode("utf-8", errors="replace") if hasattr(r, "strings") else str(r).strip('"')
+                prefix = "v=dmarc1" if rtype.upper() == "DMARC" else "v=spf1"
+                if txt.lower().startswith(prefix): return txt
             return "No Policy Detected"
         except Exception as exc:
             self.logger.debug("%s policy lookup failed for %s: %s", rtype, self.target, exc)
