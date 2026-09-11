@@ -1,92 +1,60 @@
-# Nexus Intelligence architecture
+# Cómo obtiene y explica datos Nexus
 
-Nexus no es una API remota: es un proceso CLI que ejecuta módulos de red, guarda observaciones locales y construye correlación TF-IDF en memoria.
+Nexus es un programa que corre en tu equipo. Consulta servicios públicos, guarda lo observado y genera informes. El resumen y los datos desplegables proceden de las mismas respuestas.
 
-## Cómo leerlo
-
-La primera figura muestra los componentes conectados. Las dos secuencias separan objetivo único y archivo bulk porque terminan con análisis distintos. La sección final explica cómo interpretar un hallazgo.
-
-## 1. Componentes reales
+## Una consulta
 
 ```mermaid
-flowchart LR
-    CMD[nexus-intel] --> ARG[argparse]
-    ARG -->|target| ONE[execute_forensic_pipeline]
-    ARG -->|file| Q[asyncio Queue]
-    Q --> W[worker tasks]
-    W --> BT[engine per dequeued target]
-    ONE --> E[IntelligenceEngine]
-    BT --> E
-    E --> SAFE[SecurityValidator]
-    E --> MOD[DNS Web SSL Mail and Subdomains]
-    MOD --> DB[(SQLite findings WAL)]
-    MOD --> REP[ReportingEngine Markdown]
-    DB --> V[VectorCorrelator scikit-learn TF-IDF]
-    TDS[TDS_LOG_PATH JSONL optional] --> V
-    V --> AUD[VectorIntegrityAuditor]
+flowchart TD
+    A["Dominio elegido"] --> B["Comprobar que el destino sea público"]
+    B --> C["Consultar web, correo, direcciones y certificado"]
+    C --> D["Guardar lo observado"]
+    D --> E["Explicarlo en la terminal y el informe"]
 ```
 
-El runtime no declara Redis, MongoDB ni Milvus. La persistencia activa es SQLite y la correlación activa es TF-IDF local. Tampoco ofrece proxy, DoH ni CT externo: no hay una API SaaS de reputación o inteligencia en el camino de ejecución.
+Los módulos se ejecutan en paralelo con un tiempo de espera. Si uno falla, se guarda ese fallo y se aprovechan las respuestas de los demás. El código de salida conserva esa diferencia; un informe parcial no se convierte en una ejecución correcta por tener una presentación más clara.
 
-## 2. Objetivo único
+| Pieza | Responsabilidad |
+| --- | --- |
+| `__main__.py` | Elegir dominio o archivo y dirigir la consulta |
+| `core/engine.py` | Validar el destino y ejecutar módulos |
+| `core/orchestrator.py` | Repartir dominios entre trabajos paralelos |
+| `core/persistence.py` | Guardar las observaciones en SQLite |
+| `core/presentation.py` | Explicar lo observado sin inventar una conclusión |
+| `core/reporting.py` | Escribir un informe único con el detalle desplegable |
 
-```mermaid
-sequenceDiagram
-    participant CLI as entrypoint
-    participant E as IntelligenceEngine target
-    participant M as five modules
-    participant DB as SQLite
-    participant R as ReportingEngine
-    participant V as TF-IDF correlator
-    CLI->>E: create target + config
-    E->>E: SecurityValidator.is_safe_target
-    E->>M: run modules with timeout
-    M-->>E: results or module_fault
-    loop each module result
-      CLI->>DB: save_finding target module data
-    end
-    CLI->>R: generate_markdown target results
-    CLI->>V: ingest optional TDS JSONL
-    CLI->>DB: get_all_findings
-    CLI->>V: ingest Nexus rows
-    V->>V: cosine similarity for target
-    V->>V: integrity audit
-```
+## Consultar sin cambiar de destino a escondidas
 
-## 3. Archivo bulk
+Antes de conectar, Nexus resuelve el nombre y comprueba las direcciones obtenidas. La conexión se fija a una dirección pública validada. HTTP conserva el nombre original para el servidor y TLS para la identificación de la conexión.
 
-```mermaid
-sequenceDiagram
-    participant CLI as "--file"
-    participant Q as asyncio Queue
-    participant W as worker
-    participant E as IntelligenceEngine target
-    participant DB as SQLite
-    participant R as report file
-    CLI->>Q: enqueue non-empty lines
-    par worker 1..N
-      W->>Q: dequeue target
-      W->>E: construct with dequeued target
-      E->>E: run same five modules
-      E-->>W: module results
-      W->>DB: save every module result
-      W->>R: report for that target
-    end
-    CLI-->>CLI: finish after queue.join
-```
+Las redirecciones HTTP se revisan una por una, con un máximo de cinco. No se admiten credenciales dentro de la URL. El correo vuelve a comprobar el destino de cada servidor antes de abrir la conexión. Estas comprobaciones impiden usar una respuesta de DNS o una redirección para llevar el programa a una red interna.
 
-El bulk ejecuta y persiste cada objetivo. Con `--correlate`, después de que termina la cola, el proceso reconstruye el índice desde SQLite y genera un resumen de pares similares entre objetivos distintos; sin esa opción solo produce los informes individuales. `--concurrency` se limita a `NEXUS_MAX_CONCURRENT`; los fallos de un módulo quedan como `module_fault` y no cancelan los otros módulos.
+La resolución, conexión y lectura tienen tiempos de espera. Las conexiones se cierran también cuando falla la consulta. El módulo de certificado recoge sus datos, pero señala `certificate_verified: false`; leerlo no verifica su autenticidad.
 
-Los módulos HTTP usan redirects manuales con un máximo de cinco saltos. Cada destino debe ser HTTP(S), no puede incluir credenciales y vuelve a pasar por `SecurityValidator`. La solicitud se construye con la IP pública validada y un encabezado `Host` con el nombre original para evitar que `curl_cffi` vuelva a resolver el hostname. TLS conecta contra la IP validada con el hostname original como SNI y cierra el writer aunque falle la extracción del certificado. SMTP valida cada MX, aplica el timeout configurado tanto a la conexión como a la lectura del banner y cierra el writer incluso cuando la respuesta falla. La enumeración de subdominios valida las direcciones A de cada respuesta antes de incluir el nombre en el informe.
+## Varios dominios
 
-## 4. Datos y evidencia
+El archivo acepta un dominio por línea y comentarios que empiezan por `#`. Se eliminan duplicados conservando el orden. Un archivo vacío o ilegible produce un error antes de crear trabajo.
 
-- SQLite almacena `target`, `module`, JSON serializado y timestamp mediante queries parametrizadas.
-- Web, TLS, SMTP y la validación inicial ejecutan la resolución de destino de forma async con timeout; no llaman a `socket.getaddrinfo()` síncrono desde el event loop.
-- Los reportes escapan encabezados y JSON observados, usan nombres de archivo acotados por slug y hash y se escriben con permisos `0600`.
-- La base activa `journal_mode=WAL`, usa `busy_timeout` y serializa las escrituras dentro de cada `PersistenceManager`.
-- DNS, TLS, HTTP, SMTP y subdominios dependen de respuestas de red en ese momento. Una ausencia o timeout es una observación incompleta, no una conclusión de seguridad.
-- HTTP lee como máximo 2 MiB por respuesta; `body_truncated` distingue un documento cortado de una respuesta completa.
-- La correlación bulk calcula por bloques y corta después de dos millones de pares; `correlation_truncated` evita presentar un resultado parcial como exhaustivo.
-- `tests/test_runtime.py` cubre mail SPF/DMARC, wildcard, persistencia, correlación, JSONL malformado, integridad TF-IDF y el target correcto en bulk.
-- Un corpus sin vocabulario útil no aborta la ingesta: el correlador conserva `index_error` y devuelve resultados vacíos hasta que haya señales comparables.
+Cada trabajo construye un motor para su propio dominio. El número de trabajos se comprueba frente a `NEXUS_MAX_CONCURRENT`. Puedes aumentar esa configuración; una cantidad mayor también consume más red y memoria.
+
+Con `--correlate` se comparan los textos de las observaciones almacenadas para esos dominios. TF-IDF es la técnica que pondera palabras según su frecuencia; la similitud sirve para encontrar observaciones parecidas. No es un veredicto ni una atribución de amenazas. El archivo opcional `TDS_LOG_PATH` añade eventos de TDS al texto comparable.
+
+## Datos completos y datos parciales
+
+| Situación | Cómo se comunica |
+| --- | --- |
+| Un módulo no termina | Se guarda su error y la ejecución devuelve 1 |
+| Una página supera 2 MiB | Se marca `body_truncated` |
+| La comparación alcanza dos millones de pares | Se marca `correlation_truncated` |
+| No hay vocabulario útil para comparar | El índice guarda el problema y devuelve coincidencias vacías |
+| DNS o correo no responden | La explicación evita concluir que esos servicios no existen |
+
+SQLite guarda dominio, módulo, respuesta y fecha mediante consultas parametrizadas. Usa su registro de escritura WAL y espera ante bloqueos breves. El informe tiene un nombre independiente para cada consulta y se crea de forma privada. Los datos observados se escapan antes de incorporarlos al documento. En la terminal no se interpretan como instrucciones de formato Rich.
+
+Los mensajes técnicos se conservan en archivos y se muestran con `--verbose`. Los resúmenes visibles no sustituyen esos datos.
+
+## Comprobaciones
+
+Las pruebas verifican destinos públicos, redirecciones, cierre de conexiones, correo, persistencia, informes, comparación y el dominio elegido en cada trabajo. Las nuevas pruebas comprueban que un certificado leído no aparezca como verificado y que un archivo sin dominios no se acepte como una consulta completa.
+
+[Guía de uso](USO.md) · [Mapa de archivos](REPOSITORY_MAP.md)

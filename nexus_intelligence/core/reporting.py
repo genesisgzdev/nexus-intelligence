@@ -6,6 +6,7 @@ import hashlib
 import tempfile
 from datetime import datetime
 from typing import Dict, Any
+from .presentation import LABELS, describe
 
 class ReportingEngine:
     """
@@ -23,18 +24,19 @@ class ReportingEngine:
 
     def generate_markdown(self, target: str, results: Dict[str, Any]) -> str:
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        report = f"# Forensic Report: {self._sanitize(target)}\n"
-        report += f"**Timestamp**: {ts}\n\n"
+        report = f"# Informe de {self._sanitize(target)}\n\n"
+        report += f"Consulta realizada: {ts}\n\n"
+        incomplete = sum("error" in data for data in results.values())
+        report += f"Se completaron {len(results) - incomplete} de {len(results)} consultas.\n\n"
+        report += "Este informe reúne observaciones del dominio. Una respuesta correcta no demuestra que el sitio sea seguro y una consulta fallida no demuestra una amenaza.\n\n"
         
         for mod, data in results.items():
-            report += f"## Module: {mod}\n"
-            if "error" in data:
-                report += f"> [!] Fault: {self._sanitize(data['error'])}\n\n"
-                continue
+            report += f"## {self._sanitize(LABELS.get(mod, mod))}\n\n"
+            report += self._sanitize(describe(mod, data)) + "\n\n"
             
             # Encapsulate all output in secure blocks
             clean_json = html.escape(json.dumps(data, indent=2, ensure_ascii=False))
-            report += "<pre><code>" + clean_json + "</code></pre>\n\n"
+            report += "<details><summary>Ver los datos de esta consulta</summary>\n\n<pre><code>" + clean_json + "</code></pre>\n\n</details>\n\n"
         
         slug = re.sub(r"[^A-Za-z0-9._-]+", "_", target).strip("._")[:80] or "target"
         digest = hashlib.sha256(target.encode("utf-8")).hexdigest()[:12]

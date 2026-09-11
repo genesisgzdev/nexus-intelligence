@@ -1,17 +1,17 @@
 # Mapa del repositorio
 
-Revisión de estructura y flujos: 2026-09-11. Este inventario cubre los archivos versionados y las incorporaciones de esta revisión; excluye dependencias instaladas y artefactos de build. Los límites de validación aparecen por área.
+Usa este índice cuando quieras encontrar una parte del proyecto. Para empezar a usarlo, vuelve al [README](../README.md). Los archivos generados al compilar y las dependencias instaladas quedan fuera del mapa.
 
-## Flujos y fronteras
+## Qué hace cada parte
 
-| Área | Recorrido real | Verificación / límite |
+| Área | Recorrido | Qué conviene comprobar |
 | --- | --- | --- |
 | Entrada | CLI simple/bulk → engine/orchestrator → módulos | Devuelve error por módulos u objetivos fallidos |
 | Red | security.py valida DNS público → HTTP fija IP conservando SNI, SMTP/TLS usan timeout | Revalidación de redirects; sin barrido externo durante las pruebas |
 | Análisis | DNS, correo, certificado, subdominios, web → diccionarios de hallazgos | Un certificado recolectado sin autenticación se etiqueta como tal |
 | Persistencia | persistence.py → SQLite WAL → correlación TF-IDF | DB configurable; integridad del índice y corpus vacío cubiertos |
 | Correlación | Nexus/JSONL TDS → vectores → top-k acotado | Comparaciones limitadas; resultado puede declarar truncamiento; no prueba causalidad |
-| Informes | Markdown saneado → archivo único privado | No sobrescribe dos informes generados en el mismo segundo |
+| Informes | Resumen explicado y datos desplegables → archivo único privado | No sobrescribe dos informes generados en el mismo segundo |
 
 ## Inventario de archivos
 
@@ -56,3 +56,6 @@ Revisión de estructura y flujos: 2026-09-11. Este inventario cubre los archivos
 | [tests/test_regressions.py](../tests/test_regressions.py) | Validación: test_regressions |
 | [tests/test_runtime.py](../tests/test_runtime.py) | Validación: test_runtime |
 | [uv.lock](../uv.lock) | Resolución exacta del entorno uv |
+| [docs/USO.md](../docs/USO.md) | Guía para consultar dominios e interpretar respuestas |
+| [nexus_intelligence/core/presentation.py](../nexus_intelligence/core/presentation.py) | Convierte respuestas en explicaciones sin atribuir amenazas |
+| [tests/test_presentation.py](../tests/test_presentation.py) | Comprueba informes parciales, certificado y errores de entrada |
