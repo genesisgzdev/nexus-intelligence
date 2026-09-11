@@ -31,6 +31,8 @@ async def execute_forensic_pipeline(target: str, engine: IntelligenceEngine, rep
     report_artifact = reporting.generate_markdown(target, execution_results)
     logger.info(f"Forensic artifact generated: {report_artifact}")
 
+    failed = any(isinstance(result, dict) and "error" in result for result in execution_results.values())
+
     # Automated Semantic Linkage
     v_correlator = VectorCorrelator()
     edr_log_stream = os.environ.get("TDS_LOG_PATH", "logs/tds_threats.jsonl")
@@ -48,26 +50,42 @@ async def execute_forensic_pipeline(target: str, engine: IntelligenceEngine, rep
     if not v_auditor.audit_index().get("is_healthy"):
         logger.warning("Vector index drift detected. Search precision may be compromised.")
 
-async def entrypoint():
-    """
-    Application entrypoint for CLI orchestration.
-    """
+    return 1 if failed else 0
+
+def _build_parser() -> argparse.ArgumentParser:
     cli_parser = argparse.ArgumentParser(description="Nexus Intelligence: Asynchronous OSINT Runtime")
     cli_parser.add_argument("target", nargs="?", help="Target domain or IP")
     cli_parser.add_argument("--file", help="Source file for bulk target ingestion")
-    cli_parser.add_argument("--concurrency", type=int, default=5, help="Async worker pool size for --file (1-100)")
+    cli_parser.add_argument("--concurrency", type=int, default=5, help="Async worker pool size for --file (1-NEXUS_MAX_CONCURRENT)")
     cli_parser.add_argument("--correlate", action="store_true", help="Write a cross-target TF-IDF correlation summary after --file")
-    cmd_args = cli_parser.parse_args()
+    return cli_parser
 
-    runtime_logger = setup_logger(config.verbose)
-    persistence = PersistenceManager()
-    await persistence.initialize()
-    report_gen = ReportingEngine(config.output_dir)
+
+def _validate_args(cmd_args: argparse.Namespace, cli_parser: argparse.ArgumentParser) -> None:
+    if cmd_args.file and cmd_args.target:
+        cli_parser.error("target and --file are mutually exclusive")
+    if cmd_args.correlate and not cmd_args.file:
+        cli_parser.error("--correlate requires --file")
+
+
+async def entrypoint() -> int:
+    """
+    Application entrypoint for CLI orchestration.
+    """
+    cli_parser = _build_parser()
+    cmd_args = cli_parser.parse_args()
+    _validate_args(cmd_args, cli_parser)
+
+    runtime_logger = setup_logger(config.output_dir, verbose=config.verbose)
 
     if cmd_args.file:
         if not os.path.exists(cmd_args.file):
             runtime_logger.error(f"Configuration Fault: Target file '{cmd_args.file}' not accessible.")
-            return
+            return 2
+
+        persistence = PersistenceManager(config.db_path)
+        await persistence.initialize()
+        report_gen = ReportingEngine(config.output_dir)
         
         with open(cmd_args.file, "r") as f:
             target_list = [line.strip() for line in f if line.strip()]
@@ -83,28 +101,34 @@ async def entrypoint():
             edr_log_stream = os.environ.get("TDS_LOG_PATH", "logs/tds_threats.jsonl")
             if os.path.exists(edr_log_stream):
                 correlator.ingest_edr_logs(edr_log_stream)
-            findings = await persistence.get_all_findings()
+            findings = [finding for finding in await persistence.get_all_findings() if finding["target"] in set(target_list)]
             correlator.ingest_nexus_results(findings)
             matches = correlator.find_related_pairs()
             summary = {
                 "target_count": len(set(target_list)),
                 "finding_count": len(findings),
                 "matches": matches,
+                "correlation_truncated": correlator.correlation_truncated,
             }
             artifact = report_gen.generate_batch_summary(summary)
             runtime_logger.info("Bulk correlation artifact generated: %s", artifact)
+        return 1 if runtime_orchestrator.failures else 0
         
     elif cmd_args.target:
+        persistence = PersistenceManager(config.db_path)
+        await persistence.initialize()
+        report_gen = ReportingEngine(config.output_dir)
         core_engine = IntelligenceEngine(cmd_args.target, config, runtime_logger)
-        await execute_forensic_pipeline(cmd_args.target, core_engine, report_gen, persistence, runtime_logger)
+        return await execute_forensic_pipeline(cmd_args.target, core_engine, report_gen, persistence, runtime_logger)
     else:
         cli_parser.print_help()
+        return 0
 
 
 def main():
     """Console-script entry point installed by the package metadata."""
     try:
-        asyncio.run(entrypoint())
+        return asyncio.run(entrypoint())
     except KeyboardInterrupt:
         return 130
 

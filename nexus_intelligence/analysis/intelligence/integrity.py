@@ -19,13 +19,14 @@ class VectorIntegrityAuditor:
         if ntotal == 0:
             return {"status": "Empty_Index", "is_healthy": False}
 
-        sample_vec = matrix.getrow(0).toarray().ravel()
-        norm = np.linalg.norm(sample_vec)
-        
-        healthy = np.isclose(norm, 1.0, atol=1e-6)
+        norms = np.sqrt(matrix.multiply(matrix).sum(axis=1)).A1
+        healthy = bool(np.all(np.isfinite(norms)) and np.all(np.isclose(norms, 1.0, atol=1e-6)))
+        norm = float(norms[0])
         return {
             "index_size": ntotal,
-            "l2_norm": round(float(norm), 6),
-            "is_healthy": bool(healthy),
+            "l2_norm": round(norm, 6),
+            "min_l2_norm": round(float(norms.min()), 6),
+            "max_l2_norm": round(float(norms.max()), 6),
+            "is_healthy": healthy,
             "vectorizer": "tfidf",
         }

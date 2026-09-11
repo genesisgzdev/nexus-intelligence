@@ -4,6 +4,7 @@ import asyncio
 from urllib.parse import urljoin, urlparse, urlunsplit
 from typing import Dict, Any, List
 from curl_cffi.requests import AsyncSession
+from curl_cffi.const import CurlOpt
 from bs4 import BeautifulSoup
 from nexus_intelligence.analysis.base import BaseModule
 from nexus_intelligence.core.security import SecurityValidator
@@ -24,13 +25,30 @@ SIGNATURES = {
     }
 }
 
+MAX_RESPONSE_BYTES = 2 * 1024 * 1024
+
 
 def pinned_http_request(url: str) -> tuple[str, str]:
     """Build a request URL pinned to an address accepted by the SSRF gate."""
     parsed = urlparse(url)
-    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
         raise ValueError("request target is not an allowed HTTP(S) URL")
     destination = SecurityValidator.resolve_public_addresses(parsed.hostname)[0]
+    host_header = parsed.hostname
+    if parsed.port is not None and parsed.port not in {80, 443}:
+        host_header = f"{host_header}:{parsed.port}"
+    if ":" in destination and not destination.startswith("["):
+        destination = f"[{destination}]"
+    pinned_netloc = destination if parsed.port is None else f"{destination}:{parsed.port}"
+    return urlunsplit((parsed.scheme, pinned_netloc, parsed.path or "/", parsed.query, "")), host_header
+
+
+async def pinned_http_request_async(url: str, timeout: float) -> tuple[str, str]:
+    """Build a request URL without blocking the event loop on DNS."""
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
+        raise ValueError("request target is not an allowed HTTP(S) URL")
+    destination = (await SecurityValidator.resolve_public_addresses_async(parsed.hostname, timeout))[0]
     host_header = parsed.hostname
     if parsed.port is not None and parsed.port not in {80, 443}:
         host_header = f"{host_header}:{parsed.port}"
@@ -58,35 +76,74 @@ class WebIntelligence(BaseModule):
                 current_url = f"https://{self.target}"
                 r = None
                 for _ in range(5):
-                    pinned_url, host_header = pinned_http_request(current_url)
+                    pinned_url, host_header = await pinned_http_request_async(current_url, self.config.timeout)
+                    parsed_target = urlparse(current_url)
+                    pinned_address = urlparse(pinned_url).hostname
+                    port = parsed_target.port or (443 if parsed_target.scheme == "https" else 80)
+                    address = f"[{pinned_address}]" if ":" in pinned_address else pinned_address
+                    # Keep the original hostname for SNI and certificate
+                    # verification while pinning the actual network address.
+                    s.curl_options = {
+                        CurlOpt.RESOLVE: [f"{parsed_target.hostname}:{port}:{address}".encode()],
+                        CurlOpt.PROXY: b"",
+                    }
                     r = await s.get(
-                        pinned_url,
-                        headers={"Host": host_header},
+                        current_url,
                         timeout=self.config.timeout,
-                        verify=False,
+                        verify=True,
                         allow_redirects=False,
+                        stream=True,
                     )
                     if r.status_code not in {301, 302, 303, 307, 308}:
                         break
                     location = r.headers.get("Location")
                     if not location:
+                        await r.aclose()
                         break
                     next_url = urljoin(current_url, location)
                     parsed = urlparse(next_url)
                     if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
+                        await r.aclose()
                         raise ValueError("redirect target is not an allowed HTTP(S) host")
-                    if not SecurityValidator.is_safe_target(parsed.hostname):
+                    if not await SecurityValidator.is_safe_target_async(parsed.hostname, self.config.timeout):
+                        await r.aclose()
                         raise ValueError("redirect target resolves to a restricted address")
+                    await r.aclose()
                     current_url = next_url
                 if r is None:
                     raise RuntimeError("web request did not produce a response")
                 if r.status_code in {301, 302, 303, 307, 308}:
+                    await r.aclose()
                     raise ValueError("redirect limit exceeded")
 
                 res['status_code'] = r.status_code
+
+                content_length = r.headers.get("Content-Length")
+                if content_length and content_length.isdigit() and int(content_length) > MAX_RESPONSE_BYTES:
+                    await r.aclose()
+                    res["body_truncated"] = True
+                    res["body_bytes"] = 0
+                    return res
+
+                chunks: list[bytes] = []
+                total = 0
+                truncated = False
+                async for chunk in r.aiter_content(64 * 1024):
+                    remaining = MAX_RESPONSE_BYTES - total
+                    if remaining <= 0:
+                        truncated = True
+                        break
+                    chunks.append(chunk[:remaining])
+                    total += min(len(chunk), remaining)
+                    if len(chunk) > remaining:
+                        truncated = True
+                        break
+                await r.aclose()
+                body_content = b"".join(chunks).decode("utf-8", errors="replace")
+                res["body_truncated"] = truncated
+                res["body_bytes"] = total
                 
                 # 1. Signature-based fingerprinting
-                body_content = r.text
                 headers_str = str(r.headers)
                 for category, sigs in SIGNATURES.items():
                     for name, patterns in sigs.items():
@@ -114,7 +171,7 @@ class WebIntelligence(BaseModule):
                     if val:
                         res['security_headers'][f"Information_Leak_{h}"] = val
 
-                soup = BeautifulSoup(r.text, "lxml")
+                soup = BeautifulSoup(body_content, "lxml")
                 if soup.title:
                     res['title'] = soup.title.get_text().strip()
 

@@ -14,6 +14,7 @@ class IntelligenceOrchestrator:
         self.logger = logger
         self.persistence = persistence
         self.queue = asyncio.Queue()
+        self.failures = 0
         self._workers: List[asyncio.Task] = []
 
     async def add_targets(self, targets: List[str]):
@@ -36,6 +37,8 @@ class IntelligenceOrchestrator:
                 # so the queued target is the one that reaches every module.
                 target_engine = IntelligenceEngine(target, self.engine.config, self.logger)
                 results = await target_engine.run(modules)
+                if any(isinstance(result, dict) and "error" in result for result in results.values()):
+                    self.failures += 1
 
                 if self.persistence is not None:
                     for module_name, result_data in results.items():
@@ -46,6 +49,7 @@ class IntelligenceOrchestrator:
             except asyncio.CancelledError:
                 break
             except Exception as e:
+                self.failures += 1
                 self.logger.error(f"Worker-{worker_id} encountered fatal error on {target}: {str(e)}")
             finally:
                 self.queue.task_done()

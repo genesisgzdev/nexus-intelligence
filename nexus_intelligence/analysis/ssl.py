@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 from typing import Dict, Any, List
 from cryptography import x509
+from cryptography.x509.extensions import ExtensionNotFound
 from nexus_intelligence.analysis.base import BaseModule
 from nexus_intelligence.core.security import SecurityValidator
 
@@ -24,14 +25,18 @@ class SSLForensics(BaseModule):
 
             # Pin the socket destination to the address that passed the SSRF
             # policy. Keep the hostname as SNI for the requested virtual host.
-            destination = SecurityValidator.resolve_public_addresses(self.target)[0]
-            reader, writer = await asyncio.open_connection(
+            destination = (await SecurityValidator.resolve_public_addresses_async(self.target, self.config.timeout))[0]
+            _reader, writer = await asyncio.wait_for(asyncio.open_connection(
                 destination, 443, ssl=ctx, server_hostname=self.target
-            )
-            ssl_obj = writer.get_extra_info('ssl_object')
-            der_cert = ssl_obj.getpeercert(True)
-            writer.close()
-            await writer.wait_closed()
+            ), timeout=self.config.timeout)
+            try:
+                ssl_obj = writer.get_extra_info('ssl_object')
+                if ssl_obj is None:
+                    raise RuntimeError("TLS connection did not expose an SSL object")
+                der_cert = ssl_obj.getpeercert(True)
+            finally:
+                writer.close()
+                await asyncio.wait_for(writer.wait_closed(), timeout=self.config.timeout)
 
             # Local X.509 Parsing (cryptography library)
             cert = x509.load_der_x509_certificate(der_cert)
@@ -43,13 +48,16 @@ class SSLForensics(BaseModule):
             res['not_valid_after'] = cert.not_valid_after_utc.isoformat()
             res['fingerprint_sha256'] = hashlib.sha256(der_cert).hexdigest()
             res['version'] = cert.version.name
-            res['signature_hash_algorithm'] = cert.signature_hash_algorithm.name
+            algorithm = cert.signature_hash_algorithm
+            res['signature_hash_algorithm'] = algorithm.name if algorithm else None
+            res['certificate_verified'] = False
 
             # Extract Subject Alternative Names (SAN) locally
             try:
                 ext = cert.extensions.get_extension_for_oid(x509.oid.ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
                 res['sans'] = ext.value.get_values_for_type(x509.DNSName)
-            except: pass
+            except ExtensionNotFound:
+                pass
 
         except Exception as e:
             self.logger.error(f"Local TLS analysis failed: {str(e)}")
