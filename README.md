@@ -1,102 +1,72 @@
 # Nexus Intelligence
 
-Nexus reúne señales observables de DNS, TLS, HTTP, correo y subdominios en informes locales revisables. No convierte una señal aislada en una sentencia de reputación.
+Conoce qué responde la web y el correo de un dominio que administras. Nexus consulta sus direcciones, su página, su certificado y algunos nombres relacionados. Después guarda un informe que explica qué encontró y qué queda por revisar.
 
-En 30 segundos: entrega un dominio o un archivo de objetivos, los módulos consultan la red con límites propios, SQLite conserva los hallazgos y el informe Markdown explica lo observado. El flujo de objetivo único puede añadir correlación TF-IDF local y eventos JSONL de TDS. No depende de una API de reputación ni de un índice vectorial remoto.
+[Ver comprobaciones](https://github.com/genesisgzdev/nexus-intelligence/actions) · [Guía de uso](docs/USO.md) · [Cómo funciona](docs/ARCHITECTURE.md)
 
-Está pensada para investigar dominios y activos propios o aquellos para los que tengas autorización. No es un servicio de reputación externo ni pretende convertir una señal aislada en una conclusión definitiva.
+## Tu primera consulta
 
-## Flujo que explica el producto
+Necesitas Python 3.11 o posterior y conexión a internet. Descarga el repositorio, abre una terminal en su carpeta y crea un entorno:
 
-```text
-objetivo o archivo de objetivos
-          |
-          v
-workers asyncio -> DNS | TLS | web | mail
-          |
-          v
-SQLite + hallazgos JSON
-          |
-          v
-TF-IDF local -> similitud coseno -> informe Markdown
-```
-
-La vista corta separa observación, persistencia y análisis. El diagrama completo de workers, timeouts, errores, bulk y auditoría está en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Las resoluciones de destino que ocurren dentro de módulos async usan el resolver del event loop y quedan acotadas por el timeout del módulo.
-
-Los módulos actuales cubren:
-
-- registros DNS como A, AAAA, MX, TXT, SOA y CAA
-- certificado X.509, fechas, emisor, SAN y huella SHA-256
-- cabeceras de seguridad HTTP y metadatos de la respuesta
-- banners SMTP cuando el servicio responde
-- correlación local con TF-IDF y `scikit-learn`
-- ingesta opcional de eventos JSONL de [Threat Detection Suite](https://github.com/genesisgzdev/threat-detection-suite)
-
-La validación de objetivos y de los subdominios descubiertos comprueba todas las respuestas DNS y bloquea rangos privados, loopback, link-local, multicast, reservados y no especificados. El módulo web no sigue redirects a ciegas: cada salto HTTP(S) vuelve a validarse y hay un máximo de cinco.
-
-La conexión TLS vuelve a resolver el host y abre el socket contra la IP pública validada, manteniendo el hostname como SNI. Los banners SMTP aplican la misma validación a cada servidor MX. HTTP también fija cada solicitud a una IP validada y conserva el `Host` original para el virtual host; cada redirect vuelve a pasar por la misma frontera.
-
-La correlación es una matriz TF-IDF reproducible. No depende de FAISS, de embeddings remotos ni de una API de inteligencia externa. La configuración no ofrece proxy, DoH ni CT externo: las únicas consultas salen por los resolvers DNS configurados y por los módulos de observación autorizados. El módulo web lee como máximo 2 MiB por respuesta y marca el informe cuando el cuerpo queda truncado. La comparación bulk tiene un presupuesto de dos millones de pares y marca el índice como incompleto si lo alcanza.
-
-## Instalación
-
-Requiere Python 3.11 o superior. Con `uv`:
-
-```bash
-uv sync
-uv run nexus-intel example.com
-```
-
-Con pip:
-
-```bash
+```sh
 python -m venv .venv
-source .venv/bin/activate
-pip install -e '.[dev]'
-nexus-intel example.com
 ```
 
-También puedes pasar objetivos desde un archivo y ajustar el número de workers:
+Actívalo con `.venv\Scripts\activate` en Windows o `source .venv/bin/activate` en Linux y macOS. Instala Nexus y ábrelo:
 
-```bash
-nexus-intel --file targets.txt --concurrency 8 --correlate
+```sh
+python -m pip install .
+nexus-intel
 ```
 
-El modo bulk ejecuta los cinco módulos por objetivo, guarda cada hallazgo en SQLite y genera un informe por objetivo. `--correlate` añade un resumen global con similitudes TF-IDF entre objetivos distintos; no convierte esas similitudes en una reputación ni en una clasificación automática. SQLite usa WAL y una cola de escritura por proceso para evitar que los workers compitan por el mismo commit. Usa `nexus-intel --help` para ver las opciones disponibles.
+Nexus te preguntará qué dominio quieres consultar. Escribe solo el dominio, sin `https://` ni una ruta, y pulsa Enter. Utiliza dominios propios o para los que tengas autorización.
 
-`target` y `--file` son rutas mutuamente excluyentes. `--correlate` solo es válido con `--file`; una combinación inválida o un archivo inaccesible termina con código 2. `--concurrency` se limita al valor efectivo de `NEXUS_MAX_CONCURRENT`.
+También puedes ir directamente a una consulta:
 
-## Datos y resultados
-
-Los hallazgos se conservan en SQLite junto con sus datos JSON. Los informes Markdown se generan a partir de esos resultados, escapan los datos observados y se guardan con nombre seguro y permisos `0600`. La auditoría de integridad comprueba que la matriz activa tenga el tamaño y la normalización esperados. Eso respalda una observación reproducible del momento, no una garantía sobre el activo.
-
-Las consultas de red dependen del objetivo, del DNS y de los servicios que estén disponibles en ese momento. Un timeout o un banner ausente es un resultado incompleto, no una prueba de que el activo sea seguro. Las consultas salen hacia el objetivo autorizado: “local-first” no significa “sin tráfico de red”.
-
-## Desarrollo
-
-```bash
-uv sync --extra dev
-uv run pytest
+```sh
+nexus-intel midominio.com
 ```
 
-La entrada de consola es `nexus-intel` y apunta a `nexus_intelligence.__main__:main`. El proyecto mantiene locks de dependencias para que las instalaciones y los tests sean repetibles.
+Sustituye `midominio.com` por tu dominio. Las respuestas proceden de la red en ese momento.
 
-El mapa de ejecución real, la diferencia entre objetivo único y bulk y la forma de interpretar los resultados están en [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Para cambios de comportamiento, revisa primero [`tests/test_runtime.py`](tests/test_runtime.py).
+## Qué vas a recibir
 
-## Uso responsable
+La terminal muestra un resumen y la ubicación del informe. Abre el archivo Markdown de la carpeta `reports` para leerlo y despliega «Ver los datos de esta consulta» cuando necesites el detalle.
 
-Ejecuta Nexus solo sobre infraestructura propia o con permiso explícito. Respeta los límites de la red, evita cargas innecesarias y trata los informes como material sensible.
+| Consulta | Para qué te sirve |
+| --- | --- |
+| Direcciones del dominio | Ver a qué direcciones de red responde |
+| Página web | Saber si contestó y revisar su configuración visible |
+| Certificado de conexión | Leer los datos del certificado presentado |
+| Correo del dominio | Revisar servidores y registros contra suplantación |
+| Otros sitios del dominio | Encontrar nombres de la lista que Nexus consulta |
 
-## Licencia
+El certificado se lee sin verificar su autenticidad en ese módulo. Una respuesta web correcta tampoco demuestra que un sitio sea seguro. Si una consulta queda incompleta, el informe lo dice.
 
-MIT. Consulta [LICENSE](LICENSE).
+```mermaid
+flowchart TD
+    A["Eliges un dominio"] --> B["Nexus consulta sus servicios públicos"]
+    B --> C{"¿Hay respuesta?"}
+    C -- Sí --> D["Explica lo observado"]
+    C -- No --> E["Indica qué no pudo comprobar"]
+```
 
-## Integridad de resultados y transporte
+## Revisar varios dominios
 
-HTTP conserva el hostname original para SNI y verificación de certificados, mientras CURLOPT_RESOLVE fija la conexión a la IP pública validada. No utiliza proxies del entorno para saltarse esa frontera. Cada redirect se vuelve a validar. TLS forense puede inspeccionar un certificado sin autenticarlo y lo etiqueta como `certificate_verified: false`; no debe confundirse con una conexión HTTPS verificada.
+Guarda uno por línea en un archivo llamado `dominios.txt` y ejecuta:
 
-Los informes nacen con permisos 0600 y nombres únicos incluso dentro del mismo segundo. `NEXUS_DB_PATH` selecciona SQLite; el contenedor guarda DB e informes bajo `/app/reports`, propiedad del usuario de ejecución. Un bind mount debe permitir escritura a ese usuario. El CLI devuelve error cuando falla un módulo o un objetivo bulk; un informe generado no significa que todas las consultas hayan funcionado.
+```sh
+nexus-intel --file dominios.txt --concurrency 5 --correlate
+```
 
-Benford excluye valores no finitos y extrae el primer dígito significativo también para fracciones y subnormales. La correlación ignora líneas JSON que no son objetos y conserva como máximo `top_k` pares en memoria. El límite de comparaciones se comunica como truncamiento: una lista parcial no acredita que no existan otras relaciones.
+Recibirás informes individuales y un resumen de observaciones parecidas. Los nombres repetidos se consultan una sola vez por archivo. Puedes añadir comentarios en líneas que comiencen por `#`.
 
-El inventario completo de archivos y flujos está en [docs/REPOSITORY_MAP.md](docs/REPOSITORY_MAP.md).
+Las similitudes ayudan a elegir qué revisar. No atribuyen una amenaza ni demuestran que dos dominios pertenezcan a la misma persona.
+
+## Si necesitas ayuda
+
+La [guía de uso](docs/USO.md) explica los mensajes, dónde quedan los archivos y cómo ajustar tiempos y capacidad. `nexus-intel --help` muestra los comandos. `--verbose` añade mensajes técnicos para diagnosticar una consulta.
+
+Para desarrollar, usa `uv sync --frozen --extra dev` y `uv run pytest -q`. El [mapa de archivos](docs/REPOSITORY_MAP.md) indica dónde está cada función.
+
+Licencia [MIT](LICENSE).

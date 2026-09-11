@@ -11,6 +11,7 @@ from nexus_intelligence.core.reporting import ReportingEngine
 from nexus_intelligence.core.orchestrator import IntelligenceOrchestrator
 from nexus_intelligence.analysis.intelligence.correlation import VectorCorrelator
 from nexus_intelligence.analysis.intelligence.integrity import VectorIntegrityAuditor
+from nexus_intelligence.core.presentation import show_results
 
 async def execute_forensic_pipeline(target: str, engine: IntelligenceEngine, reporting: ReportingEngine, db: PersistenceManager, logger: logging.Logger):
     """
@@ -30,6 +31,7 @@ async def execute_forensic_pipeline(target: str, engine: IntelligenceEngine, rep
     
     report_artifact = reporting.generate_markdown(target, execution_results)
     logger.info(f"Forensic artifact generated: {report_artifact}")
+    show_results(target, execution_results, report_artifact)
 
     failed = any(isinstance(result, dict) and "error" in result for result in execution_results.values())
 
@@ -53,11 +55,12 @@ async def execute_forensic_pipeline(target: str, engine: IntelligenceEngine, rep
     return 1 if failed else 0
 
 def _build_parser() -> argparse.ArgumentParser:
-    cli_parser = argparse.ArgumentParser(description="Nexus Intelligence: Asynchronous OSINT Runtime")
-    cli_parser.add_argument("target", nargs="?", help="Target domain or IP")
-    cli_parser.add_argument("--file", help="Source file for bulk target ingestion")
-    cli_parser.add_argument("--concurrency", type=int, default=5, help="Async worker pool size for --file (1-NEXUS_MAX_CONCURRENT)")
-    cli_parser.add_argument("--correlate", action="store_true", help="Write a cross-target TF-IDF correlation summary after --file")
+    cli_parser = argparse.ArgumentParser(description="Consulta un dominio y recibe un informe explicado.", epilog="Ejemplo: nexus-intel midominio.com")
+    cli_parser.add_argument("target", nargs="?", help="dominio o dirección pública que administras")
+    cli_parser.add_argument("--file", help="archivo con un dominio por línea")
+    cli_parser.add_argument("--concurrency", type=int, default=5, help="dominios que se consultan a la vez")
+    cli_parser.add_argument("--correlate", action="store_true", help="comparar observaciones de los dominios del archivo")
+    cli_parser.add_argument("--verbose", action="store_true", help="mostrar también los mensajes técnicos")
     return cli_parser
 
 
@@ -66,6 +69,8 @@ def _validate_args(cmd_args: argparse.Namespace, cli_parser: argparse.ArgumentPa
         cli_parser.error("target and --file are mutually exclusive")
     if cmd_args.correlate and not cmd_args.file:
         cli_parser.error("--correlate requires --file")
+    if not 1 <= cmd_args.concurrency <= config.max_concurrent:
+        cli_parser.error(f"--concurrency debe estar entre 1 y {config.max_concurrent}; ajusta NEXUS_MAX_CONCURRENT si necesitas más capacidad")
 
 
 async def entrypoint() -> int:
@@ -75,20 +80,34 @@ async def entrypoint() -> int:
     cli_parser = _build_parser()
     cmd_args = cli_parser.parse_args()
     _validate_args(cmd_args, cli_parser)
+    if not cmd_args.target and not cmd_args.file and sys.stdin.isatty():
+        print("\nNexus\nConoce la web y el correo de un dominio que administras.\n")
+        try:
+            cmd_args.target = input("¿Qué dominio quieres consultar? ").strip()
+        except EOFError:
+            return 0
+        if not cmd_args.target:
+            return 0
 
-    runtime_logger = setup_logger(config.output_dir, verbose=config.verbose)
+    runtime_logger = setup_logger(config.output_dir, verbose=config.verbose or cmd_args.verbose)
 
     if cmd_args.file:
         if not os.path.exists(cmd_args.file):
             runtime_logger.error(f"Configuration Fault: Target file '{cmd_args.file}' not accessible.")
             return 2
 
+        try:
+            with open(cmd_args.file, encoding="utf-8-sig") as targets:
+                target_list = list(dict.fromkeys(line.strip() for line in targets if line.strip() and not line.lstrip().startswith("#")))
+        except (OSError, UnicodeError) as exc:
+            runtime_logger.error("No pude leer el archivo de dominios: %s", exc)
+            return 2
+        if not target_list:
+            runtime_logger.error("El archivo está vacío. Añade un dominio por línea.")
+            return 2
         persistence = PersistenceManager(config.db_path)
         await persistence.initialize()
         report_gen = ReportingEngine(config.output_dir)
-        
-        with open(cmd_args.file, "r") as f:
-            target_list = [line.strip() for line in f if line.strip()]
         
         orch_engine = IntelligenceEngine("", config, runtime_logger)
         concurrency = max(1, min(cmd_args.concurrency, config.max_concurrent))

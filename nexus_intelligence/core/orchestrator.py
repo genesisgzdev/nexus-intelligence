@@ -1,3 +1,4 @@
+from nexus_intelligence.core.presentation import show_results
 import asyncio
 import logging
 from typing import List, Any, Optional
@@ -46,6 +47,7 @@ class IntelligenceOrchestrator:
                 
                 path = self.reporting.generate_markdown(target, results)
                 self.logger.info(f"Worker-{worker_id} finalized report: {path}")
+                show_results(target, results, path)
             except asyncio.CancelledError:
                 break
             except Exception as e:

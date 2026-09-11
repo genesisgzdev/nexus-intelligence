@@ -35,8 +35,8 @@ def setup_logger(output_dir: str = "reports", name: str = "Nexus", verbose: bool
         return logger
 
     # 1. Console Handler (Rich)
-    console_handler = RichHandler(rich_tracebacks=True, markup=True)
-    console_handler.setLevel(level)
+    console_handler = RichHandler(rich_tracebacks=verbose, markup=False, show_path=verbose)
+    console_handler.setLevel(level if verbose else logging.WARNING)
     logger.addHandler(console_handler)
 
     # 2. Forensic File Handler (JSONL)
